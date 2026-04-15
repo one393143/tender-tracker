@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>定期自動查詢系統</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; max-width: 1000px; margin: auto; background-color: #f4f7f6;}
+        .box { background: white; border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
+        input[type="text"] { padding: 8px; width: 200px; }
+        button { padding: 8px 15px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        .danger-btn { background: #dc3545; }
+        .danger-btn:hover { background: #c82333; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #e9ecef; }
+        .task-row { display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+        .checkbox-group label { margin-right: 15px; cursor: pointer; }
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <a href="index.html">← 回單次查詢首頁</a>
+        <span>|</span>
+        <span style="margin-left: 15px; color: gray;">🕒 定期自動查詢系統 (鎖定過去 30 天)</span>
+    </div>
+
+    <h1 style="text-align: center; color: #333;">⚙️ 任務排程管理中心</h1>
+
+    <div class="box">
+        <h3>➕ 新增自動任務</h3>
+        <p style="font-size: 13px; color: gray;">系統每天半夜會自動執行此處列出的任務，並自動搜尋過去 30 天的範圍。</p>
+        
+        <label>關鍵字: </label>
+        <input type="text" id="newKeyword" placeholder="例如: 伺服器">
+        
+        <div class="checkbox-group" style="margin: 15px 0;">
+            <b>招標類型 (可複選): </b>
+            <label><input type="checkbox" value="招標公告" class="type-cb" checked> 招標公告</label>
+            <label><input type="checkbox" value="公開徵求" class="type-cb"> 公開徵求</label>
+            <label><input type="checkbox" value="公開閱覽" class="type-cb"> 公開閱覽</label>
+            <label><input type="checkbox" value="政府採購預告" class="type-cb"> 政府採購預告</label>
+        </div>
+        
+        <button onclick="addTask()">💾 儲存並加入排程</button>
+        <span id="saveStatus" style="color: green; margin-left: 10px;"></span>
+    </div>
+
+    <div class="box">
+        <h3>📋 目前的自動任務清單</h3>
+        <button onclick="loadTasks()" style="background: #28a745; margin-bottom: 15px;">🔄 重新整理清單</button>
+        <div id="taskList">讀取中...</div>
+    </div>
+
+    <div class="box" id="resultBox" style="display: none;">
+        <h3>📊 <span id="resultTitle"></span> 最近30天結果</h3>
+        <button onclick="document.getElementById('resultBox').style.display='none'" style="margin-bottom: 15px; background: #6c757d;">隱藏結果</button>
+        <div id="tableContainer" style="overflow-x: auto;"></div>
+    </div>
+
+    <script>
+        // 共用的 GitHub 資訊 (從 index.html 繼承過來)
+        const owner = localStorage.getItem('gh_owner');
+        const repo = localStorage.getItem('gh_repo');
+        const token = localStorage.getItem('gh_token');
+        let currentTasks = [];
+        let fileSha = ""; // GitHub API 修改檔案需要 SHA 碼
+
+        if (!token) alert("請先在首頁設定 GitHub Token！");
+
+        // Base64 編解碼 (支援中文 UTF-8)
+        function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
+        function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
+
+        // 讀取 tasks.json
+        async function loadTasks() {
+            try {
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json?t=${new Date().getTime()}`;
+                const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+                
+                if (res.status === 404) {
+                    currentTasks = [];
+                    renderTasks();
+                    return;
+                }
+                
+                const data = await res.json();
+                fileSha = data.sha;
+                const jsonStr = b64_to_utf8(data.content);
+                currentTasks = JSON.parse(jsonStr);
+                renderTasks();
+            } catch (e) {
+                document.getElementById('taskList').innerHTML = "讀取失敗，可能是尚未建立任務檔。";
+            }
+        }
+
+        // 渲染任務清單到畫面上
+        function renderTasks() {
+            let html = '';
+            if (currentTasks.length === 0) {
+                html = "<p style='color:gray'>目前無自動任務。</p>";
+            } else {
+                currentTasks.forEach(task => {
+                    html += `
+                    <div class="task-row">
+                        <div>
+                            <strong>🔑 關鍵字:</strong> ${task.keyword} <br>
+                            <span style="font-size: 13px; color: gray;">🏷️ 類型: ${task.types.join(', ')}</span>
+                        </div>
+                        <div>
+                            <button onclick="viewResults('${task.id}', '${task.keyword}')">👁️ 查看最新結果</button>
+                            <button class="danger-btn" onclick="deleteTask('${task.id}')">🗑️ 刪除</button>
+                        </div>
+                    </div>`;
+                });
+            }
+            document.getElementById('taskList').innerHTML = html;
+        }
+
+        // 新增任務並寫回 GitHub
+        async function addTask() {
+            const keyword = document.getElementById('newKeyword').value.trim();
+            if(!keyword) return alert("請輸入關鍵字");
+
+            const checkboxes = document.querySelectorAll('.type-cb:checked');
+            const types = Array.from(checkboxes).map(cb => cb.value);
+            if(types.length === 0) return alert("請至少勾選一種招標類型");
+
+            // 產生唯一 ID
+            const newId = Date.now().toString();
+            currentTasks.push({ id: newId, keyword: keyword, types: types });
+            
+            await saveToGitHub();
+            document.getElementById('newKeyword').value = ''; // 清空輸入框
+        }
+
+        // 刪除任務
+        async function deleteTask(id) {
+            if(!confirm("確定要刪除此自動排程嗎？")) return;
+            currentTasks = currentTasks.filter(task => task.id !== id);
+            await saveToGitHub();
+        }
+
+        // 將更新後的 JSON 存回 GitHub
+        async function saveToGitHub() {
+            document.getElementById('saveStatus').innerText = "儲存中...";
+            const jsonStr = JSON.stringify(currentTasks, null, 2);
+            const contentB64 = utf8_to_b64(jsonStr);
+
+            const body = {
+                message: "Update automated tasks",
+                content: contentB64,
+                branch: "main"
+            };
+            if (fileSha) body.sha = fileSha;
+
+            const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                document.getElementById('saveStatus').innerText = "✅ 儲存成功！";
+                setTimeout(() => document.getElementById('saveStatus').innerText = "", 3000);
+                await loadTasks(); // 重新讀取取得新的 SHA
+            } else {
+                alert("儲存失敗，請檢查權限。");
+            }
+        }
+
+        // 查看個別任務的 CSV 結果 (沿用原本強大的解析器)
+        async function viewResults(id, keyword) {
+            document.getElementById('resultBox').style.display = 'block';
+            document.getElementById('resultTitle').innerText = keyword;
+            document.getElementById('tableContainer').innerHTML = "讀取資料中...";
+
+            try {
+                const noCacheUrl = `data/task_${id}.csv?t=${new Date().getTime()}`;
+                const res = await fetch(noCacheUrl, { headers: { 'Cache-Control': 'no-cache' } });
+                if (!res.ok) throw new Error("尚未產出資料，或今日無新結果");
+                
+                const csvText = await res.text();
+                const rows = csvText.split('\n').filter(row => row.trim() !== '');
+                if(rows.length <= 1) {
+                    document.getElementById('tableContainer').innerHTML = "<p style='color:gray'>過去 30 天查無資料。</p>";
+                    return;
+                }
+
+                let html = '<table>';
+                rows.forEach((row, index) => {
+                    let result = [];
+                    let current = '';
+                    let inQuotes = false;
+                    for (let i = 0; i < row.length; i++) {
+                        let char = row[i];
+                        if (char === '"' && row[i+1] === '"') { current += '"'; i++; }
+                        else if (char === '"') inQuotes = !inQuotes;
+                        else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+                        else current += char;
+                    }
+                    result.push(current.trim());
+                    const cols = result.map(s => s.replace(/^"|"$/g, '').trim());
+                    
+                    html += '<tr>';
+                    cols.forEach(col => html += index === 0 ? `<th>${col}</th>` : `<td>${col}</td>`);
+                    html += '</tr>';
+                });
+                html += '</table>';
+                document.getElementById('tableContainer').innerHTML = html;
+            } catch (e) {
+                document.getElementById('tableContainer').innerHTML = `<p style="color:red">${e.message}</p>`;
+            }
+        }
+
+        // 網頁載入時自動讀取任務清單
+        window.onload = loadTasks;
+    </script>
+</body>
+</html>
