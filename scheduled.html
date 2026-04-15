@@ -122,7 +122,7 @@
                 const yamlContent = b64_to_utf8(data.content.replace(/\s/g, ''));
                 
                 // 優化正則表達式，使其能更穩定地抓取 cron 值
-                const match = yamlContent.match(/-\s*cron:\s*['"]?([^'"\r\n\s]+)/);
+                const match = yamlContent.match(/-\s*cron:\s*['"]?([^'"]+?)['"]?(?=\s*(?:#|$))/);
                 
                 if (match && match[1]) {
                     const currentCron = match[1];
