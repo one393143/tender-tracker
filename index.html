@@ -205,8 +205,8 @@
                     headers: { 
                         'Authorization': `Bearer ${token}`,
                         // 關鍵：要求 GitHub 直接回傳原始文字(raw)，而不是 JSON 格式的 base64
-                        'Accept': 'application/vnd.github.v3.raw',
-                        'Cache-Control': 'no-cache'
+                        'Accept': 'application/vnd.github.v3.raw'
+                        // ✅ 已移除 Cache-Control，靠網址的 ?t=... 防止快取即可
                     }
                 });
 
