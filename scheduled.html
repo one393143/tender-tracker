@@ -23,7 +23,7 @@
         .nav { margin-bottom: 20px; }
         .nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
         
-        /* --- 標案高亮特效與 Badge 標籤樣式 --- */
+        /* --- 標案高亮與 Badge 樣式 --- */
         .task-row.highlight { background-color: #fff8d6; border-left: 5px solid #ffc107; }
         .badge { font-size: 12px; padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: inline-block; }
         .badge-loading { background-color: #e9ecef; color: #6c757d; }
@@ -109,6 +109,7 @@
         function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
         function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
 
+        // --- 1. 強化版：載入目前的 YAML 設定 (使用 Regex 直接定位) ---
         async function loadCurrentSchedule() {
             const statusDiv = document.getElementById('cronStatus');
             statusDiv.innerHTML = "<span style='color:gray'>🔍 讀取目前排程設定中...</span>";
@@ -118,26 +119,14 @@
                 if (!getRes.ok) throw new Error("找不到 auto_scraper.yml");
                 const data = await getRes.json();
                 
-                // 移除 base64 可能包含的換行符號
-                const yamlContent = b64_to_utf8(data.content.replace(/\s/g, ''));
+                // 修正：解碼前先移除所有 Base64 內的換行與空白
+                const yamlContent = b64_to_utf8(data.content.replace(/[\r\n\s]/g, ''));
                 
-                // --- 核心修復：改用更穩健的逐行解析法 ---
-                let currentCron = "";
-                const lines = yamlContent.split(/\r?\n/);
-                for (let line of lines) {
-                    if (line.includes('cron:')) {
-                        // 1. 取得 cron: 之後的內容
-                        let afterCron = line.split('cron:')[1];
-                        // 2. 移除註解 (# 之後的內容)
-                        if (afterCron.includes('#')) afterCron = afterCron.split('#')[0];
-                        // 3. 去除前後空白與引號 (支援單引號與雙引號)
-                        currentCron = afterCron.trim().replace(/^['"]|['"]$/g, '');
-                        console.log("Parsed Cron:", currentCron);
-                        break;
-                    }
-                }
+                // 使用正則表達式尋找 cron: 之後的值，直到遇到引號、換行或註解
+                const cronMatch = yamlContent.match(/cron:\s*['"]?([^'"#\r\n]+)['"]?/);
                 
-                if (currentCron) {
+                if (cronMatch && cronMatch[1]) {
+                    const currentCron = cronMatch[1].trim();
                     const selectEl = document.getElementById('cronSelect');
                     let optionExists = false;
                     for(let i=0; i<selectEl.options.length; i++){
@@ -153,7 +142,6 @@
                     }
                     statusDiv.innerHTML = `<span style='color:green'>✅ 目前雲端排程頻率：<b>${currentCron}</b></span>`;
                 } else {
-                    console.warn("YAML Content:", yamlContent); // 方便開發者調試
                     statusDiv.innerHTML = "<span style='color:orange'>⚠️ 無法解析 auto_scraper.yml 中的排程設定</span>";
                 }
             } catch(e) {
@@ -164,7 +152,7 @@
         async function runAllTasks() {
             const btn = document.getElementById('runAllBtn');
             btn.disabled = true;
-            document.getElementById('runStatus').innerText = "🔄 發送執行指令中...";
+            document.getElementById('runStatus').innerText = "🔄 發送指令中...";
             try {
                 const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/auto_scraper.yml/dispatches`, {
                     method: 'POST',
@@ -176,9 +164,9 @@
                     body: JSON.stringify({ ref: 'main' })
                 });
                 if (res.ok) {
-                    document.getElementById('runStatus').innerHTML = "✅ 指令已送出！<br>所有排程正在背景執行，請於 1~2 分鐘後查看結果。";
+                    document.getElementById('runStatus').innerHTML = "✅ 指令已送出！約 1~2 分鐘後查看結果。";
                 } else {
-                    document.getElementById('runStatus').innerHTML = "<span style='color:red'>❌ 觸發失敗，請確認 Token 包含 workflow 權限。</span>";
+                    document.getElementById('runStatus').innerHTML = "<span style='color:red'>❌ 觸發失敗，請檢查 Token 權限。</span>";
                 }
             } catch(e) {
                 document.getElementById('runStatus').innerHTML = "<span style='color:red'>❌ 連線錯誤。</span>";
@@ -193,11 +181,13 @@
             try {
                 const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/auto_scraper.yml`;
                 const getRes = await fetch(fileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!getRes.ok) throw new Error("找不到 auto_scraper.yml 檔案");
+                if (!getRes.ok) throw new Error("找不到檔案");
                 const data = await getRes.json();
                 const ymlSha = data.sha;
-                let yamlContent = b64_to_utf8(data.content);
-                yamlContent = yamlContent.replace(/-\s*cron:\s*.*/, `- cron: '${newCron}'`);
+                let yamlContent = b64_to_utf8(data.content.replace(/[\r\n\s]/g, ''));
+                
+                // 修正：強效取代，保留縮排並精準替換 cron 值
+                yamlContent = yamlContent.replace(/(-\s*cron:\s*)['"]?.*['"]?/, `$1'${newCron}'`);
 
                 const putRes = await fetch(fileUrl, {
                     method: 'PUT',
@@ -211,8 +201,9 @@
                 });
 
                 if (putRes.ok) {
-                    statusDiv.innerHTML = `<span style='color:green'>✅ 成功！排程時間已更新為：<b>${newCron}</b></span>`;
-                } else { throw new Error("權限不足，無法修改檔案。"); }
+                    statusDiv.innerHTML = `<span style='color:green'>✅ 成功！已更新為：<b>${newCron}</b></span>`;
+                    setTimeout(loadCurrentSchedule, 1500);
+                } else { throw new Error("儲存失敗"); }
             } catch(e) { statusDiv.innerHTML = `<span style='color:red'>❌ 更新失敗：${e.message}</span>`; }
         }
 
@@ -228,22 +219,20 @@
                 }
                 const data = await res.json();
                 fileSha = data.sha;
-                const jsonStr = b64_to_utf8(data.content);
+                const jsonStr = b64_to_utf8(data.content.replace(/[\r\n\s]/g, ''));
                 currentTasks = JSON.parse(jsonStr);
                 renderTasks();
             } catch (e) {
-                document.getElementById('taskList').innerHTML = "讀取失敗，可能是尚未建立任務檔。";
+                document.getElementById('taskList').innerHTML = "讀取失敗。";
             }
         }
 
-        // --- 核心修改：渲染任務後，派發檢查函數去查每個 CSV 的資料量 ---
         function renderTasks() {
             let html = '';
             if (currentTasks.length === 0) {
                 html = "<p style='color:gray'>目前無自動任務。</p>";
             } else {
                 currentTasks.forEach(task => {
-                    // 加入 id 以便稍後透過 JS 修改背景與 badge
                     html += `
                     <div class="task-row" id="task-row-${task.id}">
                         <div>
@@ -253,60 +242,41 @@
                             <span style="font-size: 13px; color: gray;">🏷️ 類型: ${task.types.join(', ')}</span>
                         </div>
                         <div>
-                            <button onclick="viewResults('${task.id}', '${task.keyword}')" style="background: #28a745;">👁️ 讀取最新結果</button>
+                            <button onclick="viewResults('${task.id}', '${task.keyword}')" style="background: #28a745;">👁️ 讀取結果</button>
                             <button class="danger-btn" onclick="deleteTask('${task.id}')">🗑️ 刪除</button>
                         </div>
                     </div>`;
                 });
             }
             document.getElementById('taskList').innerHTML = html;
-
-            // 啟動背景檢查
-            currentTasks.forEach(task => {
-                checkTaskHasData(task.id);
-            });
+            currentTasks.forEach(task => checkTaskHasData(task.id));
         }
 
-        // --- 新功能 3：背景檢查 CSV 是否有資料，並加上 Highlight ---
         async function checkTaskHasData(id) {
             try {
                 const noCacheUrl = `https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`;
                 const res = await fetch(noCacheUrl, { 
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github.v3.raw'
-                    } 
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' } 
                 });
-                
                 const badge = document.getElementById(`badge-${id}`);
                 const rowItem = document.getElementById(`task-row-${id}`);
-
                 if (!res.ok) {
                     if(badge) { badge.className = 'badge badge-empty'; badge.innerText = '尚無紀錄'; }
                     return;
                 }
-                
                 const csvText = await res.text();
                 const rows = csvText.split('\n').filter(row => row.trim() !== '');
-                
-                // 扣掉第一行標題列，如果還有剩下的，代表有標案！
                 if(rows.length > 1) {
                     const count = rows.length - 1;
                     if(badge) {
                         badge.className = 'badge badge-found';
                         badge.innerText = `🔥 發現 ${count} 筆標案`;
-                        rowItem.classList.add('highlight'); // 加上黃色高亮背景
+                        rowItem.classList.add('highlight');
                     }
                 } else {
-                    if(badge) {
-                        badge.className = 'badge badge-empty';
-                        badge.innerText = '無新標案';
-                    }
+                    if(badge) { badge.className = 'badge badge-empty'; badge.innerText = '無新標案'; }
                 }
-            } catch (e) {
-                const badge = document.getElementById(`badge-${id}`);
-                if(badge) { badge.className = 'badge badge-empty'; badge.innerText = '檢查失敗'; }
-            }
+            } catch (e) { }
         }
 
         async function addTask() {
@@ -314,8 +284,6 @@
             if(!keyword) return alert("請輸入關鍵字");
             const checkboxes = document.querySelectorAll('.type-cb:checked');
             const types = Array.from(checkboxes).map(cb => cb.value);
-            if(types.length === 0) return alert("請至少勾選一種招標類型");
-
             const newId = Date.now().toString();
             currentTasks.push({ id: newId, keyword: keyword, types: types });
             await saveToGitHub();
@@ -323,7 +291,7 @@
         }
 
         async function deleteTask(id) {
-            if(!confirm("確定要刪除此排程嗎？")) return;
+            if(!confirm("確定要刪除嗎？")) return;
             currentTasks = currentTasks.filter(task => task.id !== id);
             await saveToGitHub();
         }
@@ -334,40 +302,26 @@
             const contentB64 = utf8_to_b64(jsonStr);
             const body = { message: "Update automated tasks", content: contentB64, branch: "main" };
             if (fileSha) body.sha = fileSha;
-
             const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
-
             if (res.ok) {
-                document.getElementById('saveStatus').innerText = "✅ 儲存成功！";
-                setTimeout(() => document.getElementById('saveStatus').innerText = "", 3000);
+                document.getElementById('saveStatus').innerText = "✅ 已儲存！";
                 await loadTasks(); 
-            } else { alert("儲存失敗，請檢查權限。"); }
+            }
         }
 
         async function viewResults(id, keyword) {
             document.getElementById('resultBox').style.display = 'block';
             document.getElementById('resultTitle').innerText = keyword;
-            document.getElementById('tableContainer').innerHTML = "讀取資料中...";
-
+            document.getElementById('tableContainer').innerHTML = "載入中...";
             try {
-                const noCacheUrl = `https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`;
-                const res = await fetch(noCacheUrl, { 
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' } 
-                });
-                
-                if (!res.ok) throw new Error("尚未產出資料，或過去 30 天無新結果。");
-                
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`;
+                const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' } });
                 const csvText = await res.text();
                 const rows = csvText.split('\n').filter(row => row.trim() !== '');
-                if(rows.length <= 1) {
-                    document.getElementById('tableContainer').innerHTML = "<p style='color:gray'>過去 30 天查無資料。</p>";
-                    return;
-                }
-
                 let html = '<table>';
                 rows.forEach((row, index) => {
                     let result = []; let current = ''; let inQuotes = false;
@@ -382,15 +336,11 @@
                     const cols = result.map(s => s.replace(/^"|"$/g, '').trim());
                     html += '<tr>';
                     cols.forEach((col, colIndex) => {
-                        if (index === 0) {
-                            html += `<th>${col}</th>`;
-                        } else {
-                            // 如果是最後一欄 (連結)，轉為按鈕
+                        if (index === 0) html += `<th>${col}</th>`;
+                        else {
                             if (colIndex === cols.length - 1 && col.startsWith('http')) {
                                 html += `<td><a href="${col}" target="_blank" class="view-btn">🔗 檢視</a></td>`;
-                            } else {
-                                html += `<td>${col}</td>`;
-                            }
+                            } else html += `<td>${col}</td>`;
                         }
                     });
                     html += '</tr>';
@@ -398,14 +348,11 @@
                 html += '</table>';
                 document.getElementById('tableContainer').innerHTML = html;
             } catch (e) {
-                document.getElementById('tableContainer').innerHTML = `<p style="color:red">${e.message}</p>`;
+                document.getElementById('tableContainer').innerHTML = "讀取失敗。";
             }
         }
 
-        window.onload = () => {
-            loadTasks();
-            loadCurrentSchedule();
-        };
+        window.onload = () => { loadTasks(); loadCurrentSchedule(); };
     </script>
 </body>
 </html>
