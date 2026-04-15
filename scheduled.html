@@ -101,7 +101,50 @@
         function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
         function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
 
-        // --- 新功能 1：立即執行所有任務 ---
+        // --- 新功能：載入目前的 YAML 設定 ---
+        async function loadCurrentSchedule() {
+            const statusDiv = document.getElementById('cronStatus');
+            statusDiv.innerHTML = "<span style='color:gray'>🔍 讀取目前排程設定中...</span>";
+
+            try {
+                const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/auto_scraper.yml?t=${new Date().getTime()}`;
+                const getRes = await fetch(fileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+                
+                if (!getRes.ok) throw new Error("找不到 auto_scraper.yml");
+                
+                const data = await getRes.json();
+                const yamlContent = b64_to_utf8(data.content);
+
+                // 解析 cron 值
+                const match = yamlContent.match(/-\s*cron:\s*['"]?(.*?)['"]?(?=\s*(?:#|$))/);
+                
+                if (match && match[1]) {
+                    const currentCron = match[1];
+                    const selectEl = document.getElementById('cronSelect');
+                    let optionExists = false;
+                    
+                    for(let i=0; i<selectEl.options.length; i++){
+                        if(selectEl.options[i].value === currentCron) {
+                            selectEl.selectedIndex = i;
+                            optionExists = true;
+                            break;
+                        }
+                    }
+                    
+                    if(!optionExists) {
+                        const newOption = new Option(`自訂 (${currentCron})`, currentCron, true, true);
+                        selectEl.add(newOption);
+                    }
+                    
+                    statusDiv.innerHTML = `<span style='color:green'>✅ 目前雲端排程頻率：<b>${currentCron}</b></span>`;
+                } else {
+                    statusDiv.innerHTML = "<span style='color:orange'>⚠️ 無法解析 auto_scraper.yml 中的排程設定</span>";
+                }
+            } catch(e) {
+                statusDiv.innerHTML = `<span style='color:red'>❌ 讀取排程失敗：${e.message}</span>`;
+            }
+        }
+
         async function runAllTasks() {
             const btn = document.getElementById('runAllBtn');
             btn.disabled = true;
@@ -129,14 +172,12 @@
             setTimeout(() => { btn.disabled = false; }, 5000);
         }
 
-        // --- 新功能 2：修改 YAML 檔案改變排程頻率 ---
         async function updateSchedule() {
             const newCron = document.getElementById('cronSelect').value;
             const statusDiv = document.getElementById('cronStatus');
             statusDiv.innerHTML = "<span style='color:blue'>🔄 正在修改 GitHub 設定檔...</span>";
 
             try {
-                // 1. 先抓取目前的 auto_scraper.yml
                 const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/auto_scraper.yml`;
                 const getRes = await fetch(fileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!getRes.ok) throw new Error("找不到 auto_scraper.yml 檔案");
@@ -145,10 +186,9 @@
                 const ymlSha = data.sha;
                 let yamlContent = b64_to_utf8(data.content);
 
-                // 2. 用正規表達式替換 cron 設定
-                yamlContent = yamlContent.replace(/cron:\s*'.*?'/, `cron: '${newCron}'`);
+                // --- 修正重點：使用更暴力的取代方式，確保絕對覆蓋 ---
+                yamlContent = yamlContent.replace(/-\s*cron:\s*.*/, `- cron: '${newCron}'`);
 
-                // 3. 存回 GitHub
                 const putRes = await fetch(fileUrl, {
                     method: 'PUT',
                     headers: {
@@ -164,7 +204,7 @@
                 });
 
                 if (putRes.ok) {
-                    statusDiv.innerHTML = "<span style='color:green'>✅ 排程時間已成功更新！</span>";
+                    statusDiv.innerHTML = `<span style='color:green'>✅ 成功！排程時間已更新為：<b>${newCron}</b></span>`;
                 } else {
                     throw new Error("權限不足，無法修改檔案。");
                 }
@@ -173,7 +213,6 @@
             }
         }
 
-        // --- 以下為原有功能 (載入、新增、刪除、顯示 CSV) ---
         async function loadTasks() {
             try {
                 const url = `https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json?t=${new Date().getTime()}`;
@@ -276,7 +315,6 @@
             try {
                 const noCacheUrl = `https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`;
                 
-                // 改用 API 直抓原始檔案 (繞過 Pages 延遲)
                 const res = await fetch(noCacheUrl, { 
                     headers: { 
                         'Authorization': `Bearer ${token}`,
@@ -319,7 +357,11 @@
             }
         }
 
-        window.onload = loadTasks;
+        // --- 網頁開啟時自動讀取任務與排程 ---
+        window.onload = () => {
+            loadTasks();
+            loadCurrentSchedule();
+        };
     </script>
 </body>
 </html>
