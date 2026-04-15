@@ -78,7 +78,6 @@
             alert('✅ 設定已儲存！');
         }
 
-        // 更新進度條狀態
         function updateStep(stepNum, status, text) {
             const el = document.getElementById('step' + stepNum);
             if(status === 'active') {
@@ -94,7 +93,7 @@
             }
         }
 
-        // 啟動爬蟲
+        // 1. 觸發 GitHub Actions
         async function triggerAction() {
             const owner = document.getElementById('owner').value;
             const repo = document.getElementById('repo').value;
@@ -102,12 +101,14 @@
             
             if (!token || !owner || !repo) { alert("⚠️ 請先填寫上方系統設定！"); return; }
 
-            // UI 狀態重置
             document.getElementById('runBtn').disabled = true;
             document.getElementById('progressBox').style.display = 'block';
             updateStep(1, 'active', '1. 系統連線與發送指令中...');
-            updateStep(2, '', '⚪ 2. 雲端爬蟲查詢中...');
+            updateStep(2, '', '⚪ 2. 雲端爬蟲執行中...');
             updateStep(3, '', '⚪ 3. 資料解析與匯入中...');
+
+            // 記錄當下時間，稍後用來尋找「最新觸發」的 Action
+            const triggerTime = new Date().getTime();
 
             try {
                 const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/run_scraper.yml/dispatches`, {
@@ -129,10 +130,11 @@
 
                 if (response.ok) {
                     updateStep(1, 'done', '1. 指令發送成功！');
-                    updateStep(2, 'active', '2. 雲端爬蟲查詢中 <span id="timer">(0s)</span>...');
-                    startAutoCheck(); // 開始輪詢檢查
+                    updateStep(2, 'active', '2. 雲端爬蟲執行中 <span id="timer">(0s)</span>...');
+                    // 延遲 3 秒後開始追蹤，給 GitHub 一點時間產生執行紀錄
+                    setTimeout(() => trackActionStatus(owner, repo, token, triggerTime), 3000);
                 } else {
-                    updateStep(1, 'error', '1. 連線錯誤，請檢查 Token 權限。');
+                    updateStep(1, 'error', '1. 連線錯誤，請檢查設定。');
                     document.getElementById('runBtn').disabled = false;
                 }
             } catch (err) {
@@ -141,74 +143,89 @@
             }
         }
 
-        // 自動輪詢檢查更新
-        function startAutoCheck() {
-            let attempts = 0;
-            secondsPassed = 0;
+        // 2. 真實追蹤 GitHub Actions 執行狀態
+        function trackActionStatus(owner, repo, token, triggerTime) {
+            secondsPassed = 3;
             if(checkInterval) clearInterval(checkInterval);
 
-            // 每 5 秒檢查一次
             checkInterval = setInterval(async () => {
-                attempts++;
-                secondsPassed += 5;
+                secondsPassed += 3;
                 document.getElementById('timer').innerText = `(${secondsPassed}s)`;
 
-                const oldContent = document.getElementById('tableContainer').innerHTML;
-                
-                // 這裡我們只抓取字串做比對，先不更新畫面
-                const noCacheUrl = `data/results.csv?t=${new Date().getTime()}&r=${Math.random()}`;
                 try {
-                    const response = await fetch(noCacheUrl, { headers: { 'Cache-Control': 'no-cache' } });
-                    const csvText = await response.text();
+                    // 呼叫 API 查詢最近的 Action 紀錄
+                    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/runs?event=workflow_dispatch&per_page=1`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await res.json();
                     
-                    // 如果檔案變動了，代表抓完資料了
-                    if (attempts > 1) { 
-                        // 驗證是否有更新 (這裡做個簡單判斷，實務上可對比 hash)
-                        updateStep(2, 'done', `2. 爬蟲查詢完成！(耗時 ${secondsPassed}s)`);
-                        updateStep(3, 'active', '3. 資料解析與匯入中...');
+                    if (data.workflow_runs && data.workflow_runs.length > 0) {
+                        const latestRun = data.workflow_runs[0];
                         
-                        clearInterval(checkInterval);
-                        
-                        // 稍微延遲 1 秒讓使用者看到狀態，然後正式匯入表格
-                        setTimeout(() => {
-                            renderTable(csvText);
-                            updateStep(3, 'done', '3. 資料匯入完成！');
-                            document.getElementById('runBtn').disabled = false;
-                        }, 1000);
+                        // 判斷狀態
+                        if (latestRun.status === 'completed') {
+                            clearInterval(checkInterval);
+                            if (latestRun.conclusion === 'success') {
+                                updateStep(2, 'done', `2. 爬蟲執行完成！(耗時約 ${secondsPassed}s)`);
+                                updateStep(3, 'active', '3. 正在從資料庫抽取最新資料...');
+                                // Action 成功結束，立刻去抽原始檔案！
+                                setTimeout(() => loadRawCSV(owner, repo, token), 1000);
+                            } else {
+                                updateStep(2, 'error', `2. 爬蟲執行失敗 (狀態: ${latestRun.conclusion})。請檢查 GitHub Logs。`);
+                                document.getElementById('runBtn').disabled = false;
+                            }
+                        }
                     }
-                } catch(e) { /* 忽略中間的錯誤 */ }
+                } catch(e) {
+                    console.log("追蹤狀態時發生錯誤", e);
+                }
 
-                if (attempts >= 24) { // 最多等 2 分鐘
+                if (secondsPassed >= 120) { // 最多等 2 分鐘
                     clearInterval(checkInterval);
-                    updateStep(2, 'error', '2. 等待逾時，請稍後重試。');
+                    updateStep(2, 'error', '2. 等待逾時，請稍後手動重整。');
                     document.getElementById('runBtn').disabled = false;
                 }
-            }, 5000); 
+            }, 3000); // 每 3 秒問一次 GitHub
         }
 
-        // 專門處理 CSV 的解析器 (完美解決逗號與雙引號問題)
-        function parseCSVLine(text) {
-            let result = [];
-            let current = '';
-            let inQuotes = false;
-            for (let i = 0; i < text.length; i++) {
-                let char = text[i];
-                if (char === '"' && text[i+1] === '"') {
-                    current += '"'; i++; // 處理連續雙引號
-                } else if (char === '"') {
-                    inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    result.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
-                }
+        // 3. 繞過 Pages，直接向 GitHub API 取得原始 CSV 內容
+        async function loadRawCSV(owner, repo, token) {
+            // 如果沒有傳入參數，就從 LocalStorage 拿 (給手動重整按鈕用的)
+            owner = owner || document.getElementById('owner').value;
+            repo = repo || document.getElementById('repo').value;
+            token = token || document.getElementById('token').value;
+
+            document.getElementById('tableContainer').innerHTML = "資料下載與解析中...";
+
+            try {
+                // 使用 GitHub Contents API 取得檔案 (加上 timestamp 防止任何快取)
+                const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/data/results.csv?t=${new Date().getTime()}`;
+                
+                const response = await fetch(apiUrl, {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        // 關鍵：要求 GitHub 直接回傳原始文字(raw)，而不是 JSON 格式的 base64
+                        'Accept': 'application/vnd.github.v3.raw',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+
+                if (!response.ok) throw new Error("找不到資料檔案，可能是爬蟲尚未產出結果。");
+                
+                const csvText = await response.text();
+                renderTable(csvText);
+                
+                updateStep(3, 'done', '3. 最新資料匯入完成！');
+                document.getElementById('runBtn').disabled = false;
+
+            } catch (error) {
+                document.getElementById('tableContainer').innerHTML = `<p style="color:red">無法讀取資料：${error.message}</p>`;
+                updateStep(3, 'error', '3. 資料匯入失敗。');
+                document.getElementById('runBtn').disabled = false;
             }
-            result.push(current.trim());
-            return result.map(s => s.replace(/^"|"$/g, '').trim()); // 移除頭尾引號
         }
 
-        // 將 CSV 文字轉換為 HTML 表格
+        // 解析 CSV 並轉成表格 (保持完美處理雙引號的邏輯)
         function renderTable(csvText) {
             const rows = csvText.split('\n').filter(row => row.trim() !== '');
             if(rows.length <= 1) {
@@ -218,11 +235,21 @@
 
             let html = '<table>';
             rows.forEach((row, index) => {
-                const cols = parseCSVLine(row); // 使用新的強大解析器
+                let result = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < row.length; i++) {
+                    let char = row[i];
+                    if (char === '"' && row[i+1] === '"') { current += '"'; i++; }
+                    else if (char === '"') inQuotes = !inQuotes;
+                    else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+                    else current += char;
+                }
+                result.push(current.trim());
+                const cols = result.map(s => s.replace(/^"|"$/g, '').trim());
+                
                 html += '<tr>';
-                cols.forEach(col => {
-                    html += index === 0 ? `<th>${col}</th>` : `<td>${col}</td>`;
-                });
+                cols.forEach(col => html += index === 0 ? `<th>${col}</th>` : `<td>${col}</td>`);
                 html += '</tr>';
             });
             html += '</table>';
@@ -230,20 +257,12 @@
             document.getElementById('tableContainer').innerHTML = html;
         }
 
-        // 手動載入按鈕
-        async function loadCSV() {
-            document.getElementById('tableContainer').innerHTML = "資料下載與解析中...";
-            const noCacheUrl = `data/results.csv?t=${new Date().getTime()}&r=${Math.random()}`;
-            try {
-                const response = await fetch(noCacheUrl, { headers: { 'Cache-Control': 'no-cache' } });
-                const csvText = await response.text();
-                renderTable(csvText);
-            } catch (error) {
-                document.getElementById('tableContainer').innerHTML = `<p style="color:red">無法讀取資料：${error.message}</p>`;
-            }
-        }
+        // 手動載入按鈕綁定
+        window.loadCSV = function() {
+            loadRawCSV();
+        };
 
-        // 網頁開啟時先載入一次現有資料
+        // 網頁開啟時先嘗試載入一次現有資料
         window.onload = loadCSV;
     </script>
 </body>
