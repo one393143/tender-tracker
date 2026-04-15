@@ -1,0 +1,52 @@
+name: Tender Search Action
+
+on:
+  workflow_dispatch: # 允許從 API (網頁) 手動傳送參數執行
+    inputs:
+      keyword:
+        description: '關鍵字'
+        required: true
+        default: 'IGBT'
+      start_date:
+        description: '開始日期'
+        required: true
+        default: '2025/05/01'
+      end_date:
+        description: '結束日期'
+        required: true
+        default: '2025/05/31'
+  schedule:
+    - cron: '0 0 * * *' # 每天 UTC 時間 00:00 自動執行 (預設查詢)
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 允許寫入 CSV 檔案回 GitHub
+    steps:
+      - name: 檢出專案代碼
+        uses: actions/checkout@v3
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: 安裝極簡套件
+        run: pip install requests beautifulsoup4
+
+      - name: 執行 Python 爬蟲
+        run: |
+          # 判斷是網頁觸發還是排程觸發，給予不同的參數
+          KEYWORD="${{ github.event.inputs.keyword || 'IGBT' }}"
+          START="${{ github.event.inputs.start_date || '2025/05/01' }}"
+          END="${{ github.event.inputs.end_date || '2025/05/31' }}"
+          python scraper.py "$KEYWORD" "$START" "$END"
+
+      - name: 將查詢結果儲存回 GitHub 專案
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/results.csv
+          git commit -m "Auto Update: 自動儲存最新查詢結果" || echo "資料無變動，跳過 Commit"
+          git push
