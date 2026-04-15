@@ -121,11 +121,23 @@
                 // 移除 base64 可能包含的換行符號
                 const yamlContent = b64_to_utf8(data.content.replace(/\s/g, ''));
                 
-                // 優化正則表達式，使其能更穩定地抓取 cron 值
-                const match = yamlContent.match(/-\s*cron:\s*['"]?([^'"]+)['"]?(?=\s*(?:#|$))/);
+                // --- 核心修復：改用更穩健的逐行解析法 ---
+                let currentCron = "";
+                const lines = yamlContent.split(/\r?\n/);
+                for (let line of lines) {
+                    if (line.includes('cron:')) {
+                        // 1. 取得 cron: 之後的內容
+                        let afterCron = line.split('cron:')[1];
+                        // 2. 移除註解 (# 之後的內容)
+                        if (afterCron.includes('#')) afterCron = afterCron.split('#')[0];
+                        // 3. 去除前後空白與引號 (支援單引號與雙引號)
+                        currentCron = afterCron.trim().replace(/^['"]|['"]$/g, '');
+                        console.log("Parsed Cron:", currentCron);
+                        break;
+                    }
+                }
                 
-                if (match && match[1]) {
-                    const currentCron = match[1];
+                if (currentCron) {
                     const selectEl = document.getElementById('cronSelect');
                     let optionExists = false;
                     for(let i=0; i<selectEl.options.length; i++){
@@ -141,6 +153,7 @@
                     }
                     statusDiv.innerHTML = `<span style='color:green'>✅ 目前雲端排程頻率：<b>${currentCron}</b></span>`;
                 } else {
+                    console.warn("YAML Content:", yamlContent); // 方便開發者調試
                     statusDiv.innerHTML = "<span style='color:orange'>⚠️ 無法解析 auto_scraper.yml 中的排程設定</span>";
                 }
             } catch(e) {
