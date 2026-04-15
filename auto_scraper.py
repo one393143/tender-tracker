@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import csv
 import os
 import json
+import glob  # 👈 新增：用於搜尋資料夾內的所有檔案
 from urllib.parse import quote
 from datetime import datetime, timedelta
 
@@ -31,7 +32,7 @@ TYPE_MAP = {
 }
 
 def scrape_task(task):
-    task_id = task.get('id', 'default')
+    task_id = str(task.get('id', 'default')) # 轉成字串確保後續檔名比對沒問題
     keyword = task.get('keyword', '')
     types = task.get('types', ["招標公告"]) # 預設只查招標公告
     
@@ -103,10 +104,35 @@ if __name__ == "__main__":
         with open(tasks_file, 'w', encoding='utf-8') as f:
             json.dump(default_tasks, f, ensure_ascii=False, indent=2)
 
-    # 載入並執行所有任務
+    # 載入目前的有效任務清單
     with open(tasks_file, 'r', encoding='utf-8') as f:
         tasks = json.load(f)
         
-    print(f"讀取到 {len(tasks)} 個自動任務。準備執行...")
+    print(f"📖 讀取到 {len(tasks)} 個自動任務。準備執行...")
+    
+    # 1. 建立一個有效任務 ID 的名單 (轉成字串)
+    active_task_ids = [str(task.get('id')) for task in tasks]
+
+    # 2. 執行所有有效任務的爬蟲
     for task in tasks:
         scrape_task(task)
+
+    # 3. 🧹 執行大掃除 (清理已刪除任務的殘留 CSV)
+    print("\n🧹 開始檢查是否有殘留的舊檔案...")
+    existing_csv_files = glob.glob('data/task_*.csv')
+    
+    for filepath in existing_csv_files:
+        # 從路徑中擷取出檔名 (例如 task_1776236756665.csv)
+        filename = os.path.basename(filepath)
+        # 拔掉 task_ 和 .csv，只留下純 ID
+        file_task_id = filename.replace('task_', '').replace('.csv', '')
+        
+        # 如果這個檔案的 ID 不在目前的有效名單內，就把它刪除！
+        if file_task_id not in active_task_ids:
+            try:
+                os.remove(filepath)
+                print(f"  🗑️ 已刪除廢棄檔案: {filename}")
+            except Exception as e:
+                print(f"  ❌ 刪除檔案 {filename} 失敗: {e}")
+                
+    print("✨ 自動排程與清理作業全數完成！")
