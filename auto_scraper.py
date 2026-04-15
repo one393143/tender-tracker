@@ -4,8 +4,8 @@ import csv
 import os
 import json
 import glob  
-import smtplib  # 👈 新增：寄信模組
-from email.mime.text import MIMEText  # 👈 新增：信件內容模組
+import smtplib  # 👈 寄信模組
+from email.mime.text import MIMEText  # 👈 信件內容模組
 from email.mime.multipart import MIMEMultipart
 from urllib.parse import quote
 from datetime import datetime, timedelta
@@ -34,22 +34,31 @@ TYPE_MAP = {
     "政府採購預告": "PREDICTION"
 }
 
-# --- 3. 寄信功能函數 ---
+# --- 3. 寄信功能函數 (已更新為支援多收件者) ---
 def send_notification(task_count, total_records, details_text):
     sender_email = os.environ.get('EMAIL_USER')
     sender_password = os.environ.get('EMAIL_PASS')
-    receiver_email = os.environ.get('EMAIL_RECEIVER')
+    receiver_emails_raw = os.environ.get('EMAIL_RECEIVER')
 
-    if not sender_email or not sender_password:
-        print("⚠️ 未設定 Email 機密變數，跳過寄送通知信。")
+    if not sender_email or not sender_password or not receiver_emails_raw:
+        print("⚠️ 未完整設定 Email 機密變數 (USER, PASS, 或 RECEIVER)，跳過寄送通知信。")
         return
 
-    print("📧 準備寄送系統通知信...")
+    # 將逗號隔開的字串轉為清單，並去除空格
+    receiver_list = [email.strip() for email in receiver_emails_raw.split(',')]
+
+    print(f"📧 準備寄送系統通知信至: {', '.join(receiver_list)}")
     
     msg = MIMEMultipart()
     msg['From'] = sender_email
-    msg['To'] = receiver_email
+    msg['To'] = receiver_emails_raw # 在郵件軟體中顯示所有收件者
     msg['Subject'] = f"🔔 政府採購網自動查詢完成 (發現 {total_records} 筆)"
+
+    # 取得 Repo 資訊來動態生成網址 (由 GitHub Actions 自動提供)
+    repo_full_name = os.environ.get('GITHUB_REPOSITORY', 'your-username/tender-tracker')
+    owner = repo_full_name.split('/')[0]
+    repo_name = repo_full_name.split('/')[1]
+    dashboard_url = f"https://{owner}.github.io/{repo_name}/scheduled.html"
 
     body = (
         f"您的自動採購查詢排程已執行完畢！\n\n"
@@ -57,7 +66,7 @@ def send_notification(task_count, total_records, details_text):
         f"📊 執行任務數：{task_count} 項\n"
         f"🎯 總計標案數：{total_records} 筆\n\n"
         f"--- 各任務詳細統計 ---\n{details_text}\n"
-        f"👉 請至您的管理中心查看詳細資料。"
+        f"👉 請至您的管理中心查看詳細資料：\n{dashboard_url}"
     )
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
@@ -65,7 +74,8 @@ def send_notification(task_count, total_records, details_text):
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(sender_email, sender_password)
-        server.send_message(msg)
+        # 使用 to_addrs 參數傳入清單，確保每個人都收到
+        server.send_message(msg, to_addrs=receiver_list)
         server.quit()
         print("✅ 通知信寄送成功！")
     except Exception as e:
