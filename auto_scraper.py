@@ -3,7 +3,10 @@ from bs4 import BeautifulSoup
 import csv
 import os
 import json
-import glob  # 👈 新增：用於搜尋資料夾內的所有檔案
+import glob  
+import smtplib  # 👈 新增：寄信模組
+from email.mime.text import MIMEText  # 👈 新增：信件內容模組
+from email.mime.multipart import MIMEMultipart
 from urllib.parse import quote
 from datetime import datetime, timedelta
 
@@ -31,10 +34,48 @@ TYPE_MAP = {
     "政府採購預告": "PREDICTION"
 }
 
+# --- 3. 寄信功能函數 ---
+def send_notification(task_count, total_records, details_text):
+    sender_email = os.environ.get('EMAIL_USER')
+    sender_password = os.environ.get('EMAIL_PASS')
+    receiver_email = os.environ.get('EMAIL_RECEIVER')
+
+    if not sender_email or not sender_password:
+        print("⚠️ 未設定 Email 機密變數，跳過寄送通知信。")
+        return
+
+    print("📧 準備寄送系統通知信...")
+    
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = f"🔔 政府採購網自動查詢完成 (發現 {total_records} 筆)"
+
+    body = (
+        f"您的自動採購查詢排程已執行完畢！\n\n"
+        f"🕒 查詢區間：{start_date_str} ~ {end_date_str}\n"
+        f"📊 執行任務數：{task_count} 項\n"
+        f"🎯 總計標案數：{total_records} 筆\n\n"
+        f"--- 各任務詳細統計 ---\n{details_text}\n"
+        f"👉 請至您的管理中心查看詳細資料。"
+    )
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        print("✅ 通知信寄送成功！")
+    except Exception as e:
+        print(f"❌ 寄信失敗：{e}")
+
+
 def scrape_task(task):
-    task_id = str(task.get('id', 'default')) # 轉成字串確保後續檔名比對沒問題
+    task_id = str(task.get('id', 'default')) 
     keyword = task.get('keyword', '')
-    types = task.get('types', ["招標公告"]) # 預設只查招標公告
+    types = task.get('types', ["招標公告"]) 
     
     encoded_keyword = quote(keyword)
     all_data = []
@@ -46,9 +87,8 @@ def scrape_task(task):
         session.get("https://web.pcc.gov.tw/prkms/tender/common/basic/indexTenderBasic", headers=headers, timeout=10)
     except:
         print("連線首頁失敗")
-        return
+        return 0
 
-    # 針對這個任務勾選的多種「招標類型」，分別發送請求
     for t_name in types:
         tender_type_code = TYPE_MAP.get(t_name, "TENDER_DECLARATION")
         print(f"  👉 正在查詢: {t_name}")
@@ -74,12 +114,10 @@ def scrape_task(task):
                             case_info = cols[2].text.strip().replace('\t', '').replace('\n', ' ')
                             date = cols[6].text.strip()
                             budget = cols[8].text.strip()
-                            # 加入招標類型作為第一欄標籤
                             all_data.append([t_name, date, org_name, case_info, budget])
         except Exception as e:
             print(f"    ❌ 查詢 {t_name} 發生錯誤: {e}")
 
-    # 存檔 (每個任務獨立一個 CSV)
     os.makedirs('data', exist_ok=True)
     filename = f"data/task_{task_id}.csv"
     with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
@@ -88,13 +126,12 @@ def scrape_task(task):
         writer.writerows(all_data)
         
     print(f"✅ 任務 [{keyword}] 完成，共 {len(all_data)} 筆，存入 {filename}\n")
+    return len(all_data) # 👈 回傳抓到的數量給寄信功能使用
 
 
 if __name__ == "__main__":
-    # 讀取任務清單設定檔
     tasks_file = 'data/tasks.json'
     
-    # 如果還沒有設定檔，建立一個預設的作為範例
     if not os.path.exists('data'):
         os.makedirs('data')
     if not os.path.exists(tasks_file):
@@ -104,30 +141,30 @@ if __name__ == "__main__":
         with open(tasks_file, 'w', encoding='utf-8') as f:
             json.dump(default_tasks, f, ensure_ascii=False, indent=2)
 
-    # 載入目前的有效任務清單
     with open(tasks_file, 'r', encoding='utf-8') as f:
         tasks = json.load(f)
         
     print(f"📖 讀取到 {len(tasks)} 個自動任務。準備執行...")
     
-    # 1. 建立一個有效任務 ID 的名單 (轉成字串)
     active_task_ids = [str(task.get('id')) for task in tasks]
+    
+    # --- 用來記錄統計資訊的變數 ---
+    total_records_found = 0
+    task_details_text = ""
 
-    # 2. 執行所有有效任務的爬蟲
+    # 執行所有有效任務的爬蟲
     for task in tasks:
-        scrape_task(task)
+        records_count = scrape_task(task)
+        total_records_found += records_count
+        task_details_text += f"- [{task.get('keyword', '未知')}]: 找到 {records_count} 筆\n"
 
-    # 3. 🧹 執行大掃除 (清理已刪除任務的殘留 CSV)
     print("\n🧹 開始檢查是否有殘留的舊檔案...")
     existing_csv_files = glob.glob('data/task_*.csv')
     
     for filepath in existing_csv_files:
-        # 從路徑中擷取出檔名 (例如 task_1776236756665.csv)
         filename = os.path.basename(filepath)
-        # 拔掉 task_ 和 .csv，只留下純 ID
         file_task_id = filename.replace('task_', '').replace('.csv', '')
         
-        # 如果這個檔案的 ID 不在目前的有效名單內，就把它刪除！
         if file_task_id not in active_task_ids:
             try:
                 os.remove(filepath)
@@ -135,4 +172,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"  ❌ 刪除檔案 {filename} 失敗: {e}")
                 
-    print("✨ 自動排程與清理作業全數完成！")
+    # --- 執行完畢後，寄送通知信 ---
+    send_notification(len(tasks), total_records_found, task_details_text)
+    
+    print("✨ 自動排程、清理與通知作業全數完成！")
