@@ -119,12 +119,25 @@ def scrape_task(task):
                     rows = table.find_all('tr')
                     for row in rows[1:]:
                         cols = row.find_all('td')
-                        if len(cols) >= 9:
+                        if len(cols) >= 10:
                             org_name = cols[1].text.strip()
-                            case_info = cols[2].text.strip().replace('\t', '').replace('\n', ' ')
+                            
+                            # cols[2] 案號
+                            case_no = cols[2].contents[0].strip()
+                            
+                            nature = cols[5].text.strip()
                             date = cols[6].text.strip()
+                            deadline = cols[7].text.strip()
                             budget = cols[8].text.strip()
-                            all_data.append([t_name, date, org_name, case_info, budget])
+                            
+                            # 由最後一欄擷取連結與標案名稱 (閃避 JS 混淆)
+                            link_tag = cols[9].find('a')
+                            link = f"https://web.pcc.gov.tw{link_tag['href']}" if link_tag else ""
+                            case_name = ""
+                            if link_tag and 'title' in link_tag.attrs:
+                                case_name = link_tag['title'].replace('檢視 標案名稱:', '').strip()
+                            
+                            all_data.append([t_name, date, org_name, case_no, case_name, nature, deadline, budget, link])
         except Exception as e:
             print(f"    ❌ 查詢 {t_name} 發生錯誤: {e}")
 
@@ -132,7 +145,7 @@ def scrape_task(task):
     filename = f"data/task_{task_id}.csv"
     with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
         writer = csv.writer(f)
-        writer.writerow(['招標類型', '公告日期', '機關名稱', '標案案號與名稱', '預算金額'])
+        writer.writerow(['招標類型', '公告日期', '機關名稱', '標案案號', '標案名稱', '採購性質', '截止投標', '預算金額', '連結'])
         writer.writerows(all_data)
         
     print(f"✅ 任務 [{keyword}] 完成，共 {len(all_data)} 筆，存入 {filename}\n")

@@ -60,19 +60,32 @@ def scrape():
     # 4. 擷取所需欄位 (跳過第0列的標題)
     for row in rows[1:]:
         cols = row.find_all('td')
-        # 確保有抓到足夠的欄位才去解析 (政府網站表格有時會有隱藏的排版列)
-        if len(cols) >= 9:
+        # 確保有抓到足夠的欄位才去解析
+        if len(cols) >= 10:
             org_name = cols[1].text.strip()
-            case_info = cols[2].text.strip().replace('\t', '').replace('\n', ' ')
-            date = cols[6].text.strip()
-            budget = cols[8].text.strip()
-            data_list.append([date, org_name, case_info, budget])
+            
+            # cols[2] 通常包含： 案號 <br> 案名連結
+            case_no = cols[2].contents[0].strip()
+            
+            nature = cols[5].text.strip()     # 採購性質
+            date = cols[6].text.strip()       # 公告日期
+            deadline = cols[7].text.strip()   # 截止投標
+            budget = cols[8].text.strip()     # 預算金額
+            
+            # 從最後一欄擷取「連結」與「標案名稱」(躲開 JavaScript 混淆)
+            link_tag = cols[9].find('a')
+            link = f"https://web.pcc.gov.tw{link_tag['href']}" if link_tag else ""
+            case_name = ""
+            if link_tag and 'title' in link_tag.attrs:
+                case_name = link_tag['title'].replace('檢視 標案名稱:', '').strip()
+            
+            data_list.append([date, org_name, case_no, case_name, nature, deadline, budget, link])
 
     # 5. 確保資料夾存在並存檔
     os.makedirs('data', exist_ok=True)
     with open('data/results.csv', 'w', newline='', encoding='utf-8-sig') as f:
         writer = csv.writer(f)
-        writer.writerow(['公告日期', '機關名稱', '標案案號與名稱', '預算金額'])
+        writer.writerow(['公告日期', '機關名稱', '標案案號', '標案名稱', '採購性質', '截止投標', '預算金額', '連結'])
         writer.writerows(data_list)
         
     print(f"✅ 成功記錄 {len(data_list)} 筆資料，已存入 data/results.csv")

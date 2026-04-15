@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>定期自動查詢系統</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; max-width: 1000px; margin: auto; background-color: #f4f7f6;}
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; max-width: 1200px; margin: auto; background-color: #f4f7f6;}
         .box { background: white; border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
         input[type="text"] { padding: 8px; width: 200px; }
         select { padding: 8px; font-size: 15px; border-radius: 4px; }
@@ -29,6 +29,8 @@
         .badge-loading { background-color: #e9ecef; color: #6c757d; }
         .badge-found { background-color: #dc3545; color: white; font-weight: bold; animation: pulse 2s infinite; }
         .badge-empty { background-color: #f8f9fa; color: #adb5bd; border: 1px solid #dee2e6; }
+        .view-btn { display: inline-block; padding: 4px 8px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: bold; }
+        .view-btn:hover { background: #218838; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
     </style>
 </head>
@@ -362,7 +364,18 @@
                     result.push(current.trim());
                     const cols = result.map(s => s.replace(/^"|"$/g, '').trim());
                     html += '<tr>';
-                    cols.forEach(col => html += index === 0 ? `<th>${col}</th>` : `<td>${col}</td>`);
+                    cols.forEach((col, colIndex) => {
+                        if (index === 0) {
+                            html += `<th>${col}</th>`;
+                        } else {
+                            // 如果是最後一欄 (連結)，轉為按鈕
+                            if (colIndex === cols.length - 1 && col.startsWith('http')) {
+                                html += `<td><a href="${col}" target="_blank" class="view-btn">🔗 檢視</a></td>`;
+                            } else {
+                                html += `<td>${col}</td>`;
+                            }
+                        }
+                    });
                     html += '</tr>';
                 });
                 html += '</table>';
