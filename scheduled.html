@@ -7,10 +7,14 @@
         body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; max-width: 1000px; margin: auto; background-color: #f4f7f6;}
         .box { background: white; border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
         input[type="text"] { padding: 8px; width: 200px; }
-        button { padding: 8px 15px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        select { padding: 8px; font-size: 15px; border-radius: 4px; }
+        button { padding: 8px 15px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 15px;}
         button:hover { background: #0056b3; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
         .danger-btn { background: #dc3545; }
         .danger-btn:hover { background: #c82333; }
+        .warning-btn { background: #ffc107; color: black; font-weight: bold; }
+        .warning-btn:hover { background: #e0a800; }
         table { border-collapse: collapse; width: 100%; margin-top: 15px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #e9ecef; }
@@ -30,10 +34,34 @@
 
     <h1 style="text-align: center; color: #333;">⚙️ 任務排程管理中心</h1>
 
+    <div class="box" style="border-left: 5px solid #28a745;">
+        <h3>🎛️ 系統執行與排程設定</h3>
+        <div style="display: flex; gap: 30px; align-items: center; flex-wrap: wrap;">
+            
+            <div>
+                <button id="runAllBtn" class="warning-btn" onclick="runAllTasks()">▶️ 立即執行全部排程</button>
+                <div id="runStatus" style="color: green; font-size: 14px; margin-top: 5px;"></div>
+            </div>
+
+            <div style="border-left: 1px solid #ddd; padding-left: 30px;">
+                <label style="font-weight: bold;">自動執行頻率：</label>
+                <select id="cronSelect">
+                    <option value="0 16 * * *">每天 00:00 (半夜)</option>
+                    <option value="0 0 * * *">每天 08:00 (早上)</option>
+                    <option value="0 4 * * *">每天 12:00 (中午)</option>
+                    <option value="0 */12 * * *">每 12 小時一次</option>
+                    <option value="0 */6 * * *">每 6 小時一次</option>
+                    <option value="0 */2 * * *">每 2 小時一次</option>
+                </select>
+                <button onclick="updateSchedule()" style="background: #17a2b8; margin-left: 10px;">💾 更新排程時間</button>
+                <div id="cronStatus" style="font-size: 14px; margin-top: 5px;"></div>
+                <div style="font-size: 12px; color: gray; margin-top: 5px;">* 不建議設定過於頻繁，以免被政府網站阻擋 IP。</div>
+            </div>
+        </div>
+    </div>
+
     <div class="box">
         <h3>➕ 新增自動任務</h3>
-        <p style="font-size: 13px; color: gray;">系統每天半夜會自動執行此處列出的任務，並自動搜尋過去 30 天的範圍。</p>
-        
         <label>關鍵字: </label>
         <input type="text" id="newKeyword" placeholder="例如: 伺服器">
         
@@ -45,13 +73,13 @@
             <label><input type="checkbox" value="政府採購預告" class="type-cb"> 政府採購預告</label>
         </div>
         
-        <button onclick="addTask()">💾 儲存並加入排程</button>
+        <button onclick="addTask()">➕ 加入清單</button>
         <span id="saveStatus" style="color: green; margin-left: 10px;"></span>
     </div>
 
     <div class="box">
         <h3>📋 目前的自動任務清單</h3>
-        <button onclick="loadTasks()" style="background: #28a745; margin-bottom: 15px;">🔄 重新整理清單</button>
+        <button onclick="loadTasks()" style="background: #6c757d; margin-bottom: 15px;">🔄 重新整理清單</button>
         <div id="taskList">讀取中...</div>
     </div>
 
@@ -62,20 +90,90 @@
     </div>
 
     <script>
-        // 共用的 GitHub 資訊 (從 index.html 繼承過來)
         const owner = localStorage.getItem('gh_owner');
         const repo = localStorage.getItem('gh_repo');
         const token = localStorage.getItem('gh_token');
         let currentTasks = [];
-        let fileSha = ""; // GitHub API 修改檔案需要 SHA 碼
+        let fileSha = ""; 
 
         if (!token) alert("請先在首頁設定 GitHub Token！");
 
-        // Base64 編解碼 (支援中文 UTF-8)
         function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
         function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
 
-        // 讀取 tasks.json
+        // --- 新功能 1：立即執行所有任務 ---
+        async function runAllTasks() {
+            const btn = document.getElementById('runAllBtn');
+            btn.disabled = true;
+            document.getElementById('runStatus').innerText = "🔄 發送執行指令中...";
+
+            try {
+                const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/auto_scraper.yml/dispatches`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ref: 'main' })
+                });
+
+                if (res.ok) {
+                    document.getElementById('runStatus').innerHTML = "✅ 指令已送出！<br>所有排程正在背景執行，請於 1~2 分鐘後查看結果。";
+                } else {
+                    document.getElementById('runStatus').innerHTML = "<span style='color:red'>❌ 觸發失敗，請確認 Token 包含 workflow 權限。</span>";
+                }
+            } catch(e) {
+                document.getElementById('runStatus').innerHTML = "<span style='color:red'>❌ 連線錯誤。</span>";
+            }
+            setTimeout(() => { btn.disabled = false; }, 5000);
+        }
+
+        // --- 新功能 2：修改 YAML 檔案改變排程頻率 ---
+        async function updateSchedule() {
+            const newCron = document.getElementById('cronSelect').value;
+            const statusDiv = document.getElementById('cronStatus');
+            statusDiv.innerHTML = "<span style='color:blue'>🔄 正在修改 GitHub 設定檔...</span>";
+
+            try {
+                // 1. 先抓取目前的 auto_scraper.yml
+                const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/auto_scraper.yml`;
+                const getRes = await fetch(fileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!getRes.ok) throw new Error("找不到 auto_scraper.yml 檔案");
+                
+                const data = await getRes.json();
+                const ymlSha = data.sha;
+                let yamlContent = b64_to_utf8(data.content);
+
+                // 2. 用正規表達式替換 cron 設定
+                yamlContent = yamlContent.replace(/cron:\s*'.*?'/, `cron: '${newCron}'`);
+
+                // 3. 存回 GitHub
+                const putRes = await fetch(fileUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Update schedule frequency to ${newCron}`,
+                        content: utf8_to_b64(yamlContent),
+                        sha: ymlSha,
+                        branch: 'main'
+                    })
+                });
+
+                if (putRes.ok) {
+                    statusDiv.innerHTML = "<span style='color:green'>✅ 排程時間已成功更新！</span>";
+                } else {
+                    throw new Error("權限不足，無法修改檔案。");
+                }
+            } catch(e) {
+                statusDiv.innerHTML = `<span style='color:red'>❌ 更新失敗：${e.message}</span>`;
+            }
+        }
+
+        // --- 以下為原有功能 (載入、新增、刪除、顯示 CSV) ---
         async function loadTasks() {
             try {
                 const url = `https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json?t=${new Date().getTime()}`;
@@ -97,7 +195,6 @@
             }
         }
 
-        // 渲染任務清單到畫面上
         function renderTasks() {
             let html = '';
             if (currentTasks.length === 0) {
@@ -111,7 +208,7 @@
                             <span style="font-size: 13px; color: gray;">🏷️ 類型: ${task.types.join(', ')}</span>
                         </div>
                         <div>
-                            <button onclick="viewResults('${task.id}', '${task.keyword}')">👁️ 查看最新結果</button>
+                            <button onclick="viewResults('${task.id}', '${task.keyword}')" style="background: #28a745;">👁️ 讀取最新結果</button>
                             <button class="danger-btn" onclick="deleteTask('${task.id}')">🗑️ 刪除</button>
                         </div>
                     </div>`;
@@ -120,7 +217,6 @@
             document.getElementById('taskList').innerHTML = html;
         }
 
-        // 新增任務並寫回 GitHub
         async function addTask() {
             const keyword = document.getElementById('newKeyword').value.trim();
             if(!keyword) return alert("請輸入關鍵字");
@@ -129,22 +225,19 @@
             const types = Array.from(checkboxes).map(cb => cb.value);
             if(types.length === 0) return alert("請至少勾選一種招標類型");
 
-            // 產生唯一 ID
             const newId = Date.now().toString();
             currentTasks.push({ id: newId, keyword: keyword, types: types });
             
             await saveToGitHub();
-            document.getElementById('newKeyword').value = ''; // 清空輸入框
+            document.getElementById('newKeyword').value = ''; 
         }
 
-        // 刪除任務
         async function deleteTask(id) {
-            if(!confirm("確定要刪除此自動排程嗎？")) return;
+            if(!confirm("確定要刪除此排程嗎？")) return;
             currentTasks = currentTasks.filter(task => task.id !== id);
             await saveToGitHub();
         }
 
-        // 將更新後的 JSON 存回 GitHub
         async function saveToGitHub() {
             document.getElementById('saveStatus').innerText = "儲存中...";
             const jsonStr = JSON.stringify(currentTasks, null, 2);
@@ -169,22 +262,29 @@
             if (res.ok) {
                 document.getElementById('saveStatus').innerText = "✅ 儲存成功！";
                 setTimeout(() => document.getElementById('saveStatus').innerText = "", 3000);
-                await loadTasks(); // 重新讀取取得新的 SHA
+                await loadTasks(); 
             } else {
                 alert("儲存失敗，請檢查權限。");
             }
         }
 
-        // 查看個別任務的 CSV 結果 (沿用原本強大的解析器)
         async function viewResults(id, keyword) {
             document.getElementById('resultBox').style.display = 'block';
             document.getElementById('resultTitle').innerText = keyword;
             document.getElementById('tableContainer').innerHTML = "讀取資料中...";
 
             try {
-                const noCacheUrl = `data/task_${id}.csv?t=${new Date().getTime()}`;
-                const res = await fetch(noCacheUrl, { headers: { 'Cache-Control': 'no-cache' } });
-                if (!res.ok) throw new Error("尚未產出資料，或今日無新結果");
+                const noCacheUrl = `https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`;
+                
+                // 改用 API 直抓原始檔案 (繞過 Pages 延遲)
+                const res = await fetch(noCacheUrl, { 
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github.v3.raw'
+                    } 
+                });
+                
+                if (!res.ok) throw new Error("尚未產出資料，或過去 30 天無新結果。");
                 
                 const csvText = await res.text();
                 const rows = csvText.split('\n').filter(row => row.trim() !== '');
@@ -219,7 +319,6 @@
             }
         }
 
-        // 網頁載入時自動讀取任務清單
         window.onload = loadTasks;
     </script>
 </body>
