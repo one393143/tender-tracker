@@ -3,7 +3,7 @@ name: Daily Auto Scrape
 on:
   workflow_dispatch: # 允許從網頁按鈕「立即全部重新查詢」
   schedule:
-    - cron: '0 16 * * *'
+    - cron: '0 */6 * * *'
 
 jobs:
   auto-run:
