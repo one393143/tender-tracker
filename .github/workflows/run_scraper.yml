@@ -1,7 +1,7 @@
-name: Tender Search Action
+name: Manual Tender Search
 
 on:
-  workflow_dispatch: # 允許從 API (網頁) 手動傳送參數執行
+  workflow_dispatch: # 僅允許從 API (網頁) 手動傳送參數執行
     inputs:
       keyword:
         description: '關鍵字'
@@ -15,8 +15,6 @@ on:
         description: '結束日期'
         required: true
         default: '2025/05/31'
-  schedule:
-    - cron: '0 0 * * *' # 每天 UTC 時間 00:00 自動執行 (預設查詢)
 
 jobs:
   run-scraper:
@@ -37,16 +35,15 @@ jobs:
 
       - name: 執行 Python 爬蟲
         run: |
-          # 判斷是網頁觸發還是排程觸發，給予不同的參數
-          KEYWORD="${{ github.event.inputs.keyword || 'IGBT' }}"
-          START="${{ github.event.inputs.start_date || '2025/05/01' }}"
-          END="${{ github.event.inputs.end_date || '2025/05/31' }}"
+          KEYWORD="${{ github.event.inputs.keyword }}"
+          START="${{ github.event.inputs.start_date }}"
+          END="${{ github.event.inputs.end_date }}"
           python scraper.py "$KEYWORD" "$START" "$END"
 
-      - name: 將查詢結果儲存回 GitHub 專案
+      - name: 將單次查詢結果儲存回 GitHub 專案
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/results.csv
-          git commit -m "Auto Update: 自動儲存最新查詢結果" || echo "資料無變動，跳過 Commit"
+          git commit -m "Auto Update: 儲存單次手動查詢結果" || echo "資料無變動，跳過 Commit"
           git push
