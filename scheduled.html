@@ -18,10 +18,18 @@
         table { border-collapse: collapse; width: 100%; margin-top: 15px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #e9ecef; }
-        .task-row { display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+        .task-row { display: flex; align-items: center; justify-content: space-between; padding: 15px 10px; border-bottom: 1px solid #eee; transition: background-color 0.3s; }
         .checkbox-group label { margin-right: 15px; cursor: pointer; }
         .nav { margin-bottom: 20px; }
         .nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
+        
+        /* --- 標案高亮特效與 Badge 標籤樣式 --- */
+        .task-row.highlight { background-color: #fff8d6; border-left: 5px solid #ffc107; }
+        .badge { font-size: 12px; padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: inline-block; }
+        .badge-loading { background-color: #e9ecef; color: #6c757d; }
+        .badge-found { background-color: #dc3545; color: white; font-weight: bold; animation: pulse 2s infinite; }
+        .badge-empty { background-color: #f8f9fa; color: #adb5bd; border: 1px solid #dee2e6; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -37,12 +45,10 @@
     <div class="box" style="border-left: 5px solid #28a745;">
         <h3>🎛️ 系統執行與排程設定</h3>
         <div style="display: flex; gap: 30px; align-items: center; flex-wrap: wrap;">
-            
             <div>
                 <button id="runAllBtn" class="warning-btn" onclick="runAllTasks()">▶️ 立即執行全部排程</button>
                 <div id="runStatus" style="color: green; font-size: 14px; margin-top: 5px;"></div>
             </div>
-
             <div style="border-left: 1px solid #ddd; padding-left: 30px;">
                 <label style="font-weight: bold;">自動執行頻率：</label>
                 <select id="cronSelect">
@@ -101,28 +107,21 @@
         function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
         function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
 
-        // --- 新功能：載入目前的 YAML 設定 ---
         async function loadCurrentSchedule() {
             const statusDiv = document.getElementById('cronStatus');
             statusDiv.innerHTML = "<span style='color:gray'>🔍 讀取目前排程設定中...</span>";
-
             try {
                 const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/auto_scraper.yml?t=${new Date().getTime()}`;
                 const getRes = await fetch(fileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
-                
                 if (!getRes.ok) throw new Error("找不到 auto_scraper.yml");
-                
                 const data = await getRes.json();
                 const yamlContent = b64_to_utf8(data.content);
-
-                // 解析 cron 值
                 const match = yamlContent.match(/-\s*cron:\s*['"]?(.*?)['"]?(?=\s*(?:#|$))/);
                 
                 if (match && match[1]) {
                     const currentCron = match[1];
                     const selectEl = document.getElementById('cronSelect');
                     let optionExists = false;
-                    
                     for(let i=0; i<selectEl.options.length; i++){
                         if(selectEl.options[i].value === currentCron) {
                             selectEl.selectedIndex = i;
@@ -130,12 +129,10 @@
                             break;
                         }
                     }
-                    
                     if(!optionExists) {
                         const newOption = new Option(`自訂 (${currentCron})`, currentCron, true, true);
                         selectEl.add(newOption);
                     }
-                    
                     statusDiv.innerHTML = `<span style='color:green'>✅ 目前雲端排程頻率：<b>${currentCron}</b></span>`;
                 } else {
                     statusDiv.innerHTML = "<span style='color:orange'>⚠️ 無法解析 auto_scraper.yml 中的排程設定</span>";
@@ -149,7 +146,6 @@
             const btn = document.getElementById('runAllBtn');
             btn.disabled = true;
             document.getElementById('runStatus').innerText = "🔄 發送執行指令中...";
-
             try {
                 const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/auto_scraper.yml/dispatches`, {
                     method: 'POST',
@@ -160,7 +156,6 @@
                     },
                     body: JSON.stringify({ ref: 'main' })
                 });
-
                 if (res.ok) {
                     document.getElementById('runStatus').innerHTML = "✅ 指令已送出！<br>所有排程正在背景執行，請於 1~2 分鐘後查看結果。";
                 } else {
@@ -176,25 +171,18 @@
             const newCron = document.getElementById('cronSelect').value;
             const statusDiv = document.getElementById('cronStatus');
             statusDiv.innerHTML = "<span style='color:blue'>🔄 正在修改 GitHub 設定檔...</span>";
-
             try {
                 const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/auto_scraper.yml`;
                 const getRes = await fetch(fileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!getRes.ok) throw new Error("找不到 auto_scraper.yml 檔案");
-                
                 const data = await getRes.json();
                 const ymlSha = data.sha;
                 let yamlContent = b64_to_utf8(data.content);
-
-                // --- 修正重點：使用更暴力的取代方式，確保絕對覆蓋 ---
                 yamlContent = yamlContent.replace(/-\s*cron:\s*.*/, `- cron: '${newCron}'`);
 
                 const putRes = await fetch(fileUrl, {
                     method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: `Update schedule frequency to ${newCron}`,
                         content: utf8_to_b64(yamlContent),
@@ -205,25 +193,20 @@
 
                 if (putRes.ok) {
                     statusDiv.innerHTML = `<span style='color:green'>✅ 成功！排程時間已更新為：<b>${newCron}</b></span>`;
-                } else {
-                    throw new Error("權限不足，無法修改檔案。");
-                }
-            } catch(e) {
-                statusDiv.innerHTML = `<span style='color:red'>❌ 更新失敗：${e.message}</span>`;
-            }
+                } else { throw new Error("權限不足，無法修改檔案。"); }
+            } catch(e) { statusDiv.innerHTML = `<span style='color:red'>❌ 更新失敗：${e.message}</span>`; }
         }
 
         async function loadTasks() {
+            document.getElementById('taskList').innerHTML = "讀取任務中...";
             try {
                 const url = `https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json?t=${new Date().getTime()}`;
                 const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-                
                 if (res.status === 404) {
                     currentTasks = [];
                     renderTasks();
                     return;
                 }
-                
                 const data = await res.json();
                 fileSha = data.sha;
                 const jsonStr = b64_to_utf8(data.content);
@@ -234,16 +217,20 @@
             }
         }
 
+        // --- 核心修改：渲染任務後，派發檢查函數去查每個 CSV 的資料量 ---
         function renderTasks() {
             let html = '';
             if (currentTasks.length === 0) {
                 html = "<p style='color:gray'>目前無自動任務。</p>";
             } else {
                 currentTasks.forEach(task => {
+                    // 加入 id 以便稍後透過 JS 修改背景與 badge
                     html += `
-                    <div class="task-row">
+                    <div class="task-row" id="task-row-${task.id}">
                         <div>
-                            <strong>🔑 關鍵字:</strong> ${task.keyword} <br>
+                            <strong>🔑 關鍵字:</strong> ${task.keyword} 
+                            <span id="badge-${task.id}" class="badge badge-loading">掃描中...</span>
+                            <br>
                             <span style="font-size: 13px; color: gray;">🏷️ 類型: ${task.types.join(', ')}</span>
                         </div>
                         <div>
@@ -254,19 +241,64 @@
                 });
             }
             document.getElementById('taskList').innerHTML = html;
+
+            // 啟動背景檢查
+            currentTasks.forEach(task => {
+                checkTaskHasData(task.id);
+            });
+        }
+
+        // --- 新功能 3：背景檢查 CSV 是否有資料，並加上 Highlight ---
+        async function checkTaskHasData(id) {
+            try {
+                const noCacheUrl = `https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`;
+                const res = await fetch(noCacheUrl, { 
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github.v3.raw'
+                    } 
+                });
+                
+                const badge = document.getElementById(`badge-${id}`);
+                const rowItem = document.getElementById(`task-row-${id}`);
+
+                if (!res.ok) {
+                    if(badge) { badge.className = 'badge badge-empty'; badge.innerText = '尚無紀錄'; }
+                    return;
+                }
+                
+                const csvText = await res.text();
+                const rows = csvText.split('\n').filter(row => row.trim() !== '');
+                
+                // 扣掉第一行標題列，如果還有剩下的，代表有標案！
+                if(rows.length > 1) {
+                    const count = rows.length - 1;
+                    if(badge) {
+                        badge.className = 'badge badge-found';
+                        badge.innerText = `🔥 發現 ${count} 筆標案`;
+                        rowItem.classList.add('highlight'); // 加上黃色高亮背景
+                    }
+                } else {
+                    if(badge) {
+                        badge.className = 'badge badge-empty';
+                        badge.innerText = '無新標案';
+                    }
+                }
+            } catch (e) {
+                const badge = document.getElementById(`badge-${id}`);
+                if(badge) { badge.className = 'badge badge-empty'; badge.innerText = '檢查失敗'; }
+            }
         }
 
         async function addTask() {
             const keyword = document.getElementById('newKeyword').value.trim();
             if(!keyword) return alert("請輸入關鍵字");
-
             const checkboxes = document.querySelectorAll('.type-cb:checked');
             const types = Array.from(checkboxes).map(cb => cb.value);
             if(types.length === 0) return alert("請至少勾選一種招標類型");
 
             const newId = Date.now().toString();
             currentTasks.push({ id: newId, keyword: keyword, types: types });
-            
             await saveToGitHub();
             document.getElementById('newKeyword').value = ''; 
         }
@@ -281,20 +313,12 @@
             document.getElementById('saveStatus').innerText = "儲存中...";
             const jsonStr = JSON.stringify(currentTasks, null, 2);
             const contentB64 = utf8_to_b64(jsonStr);
-
-            const body = {
-                message: "Update automated tasks",
-                content: contentB64,
-                branch: "main"
-            };
+            const body = { message: "Update automated tasks", content: contentB64, branch: "main" };
             if (fileSha) body.sha = fileSha;
 
             const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json`, {
                 method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
 
@@ -302,9 +326,7 @@
                 document.getElementById('saveStatus').innerText = "✅ 儲存成功！";
                 setTimeout(() => document.getElementById('saveStatus').innerText = "", 3000);
                 await loadTasks(); 
-            } else {
-                alert("儲存失敗，請檢查權限。");
-            }
+            } else { alert("儲存失敗，請檢查權限。"); }
         }
 
         async function viewResults(id, keyword) {
@@ -314,12 +336,8 @@
 
             try {
                 const noCacheUrl = `https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`;
-                
                 const res = await fetch(noCacheUrl, { 
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github.v3.raw'
-                    } 
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' } 
                 });
                 
                 if (!res.ok) throw new Error("尚未產出資料，或過去 30 天無新結果。");
@@ -333,9 +351,7 @@
 
                 let html = '<table>';
                 rows.forEach((row, index) => {
-                    let result = [];
-                    let current = '';
-                    let inQuotes = false;
+                    let result = []; let current = ''; let inQuotes = false;
                     for (let i = 0; i < row.length; i++) {
                         let char = row[i];
                         if (char === '"' && row[i+1] === '"') { current += '"'; i++; }
@@ -345,7 +361,6 @@
                     }
                     result.push(current.trim());
                     const cols = result.map(s => s.replace(/^"|"$/g, '').trim());
-                    
                     html += '<tr>';
                     cols.forEach(col => html += index === 0 ? `<th>${col}</th>` : `<td>${col}</td>`);
                     html += '</tr>';
@@ -357,7 +372,6 @@
             }
         }
 
-        // --- 網頁開啟時自動讀取任務與排程 ---
         window.onload = () => {
             loadTasks();
             loadCurrentSchedule();
