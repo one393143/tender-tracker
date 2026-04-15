@@ -3,7 +3,7 @@ name: Daily Auto Scrape
 on:
   workflow_dispatch: # 允許從網頁按鈕「立即全部重新查詢」
   schedule:
-    - cron: '0 16 * * *' # 預設每天台灣時間半夜 00:00 (UTC 16:00) 執行
+    - cron: '0 */2 * * *' # 預設每天台灣時間半夜 00:00 (UTC 16:00) 執行
 
 jobs:
   auto-run:
