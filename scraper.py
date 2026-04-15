@@ -1,4 +1,3 @@
-
 import requests
 from bs4 import BeautifulSoup
 import csv
@@ -6,54 +5,77 @@ import os
 import sys
 from urllib.parse import quote
 
-# 接收外部參數 (如果沒有傳遞，就用預設值)
+# 1. 接收外部參數 (從 GitHub Actions 傳入)
 keyword = sys.argv[1] if len(sys.argv) > 1 else "IGBT"
 start_date = sys.argv[2] if len(sys.argv) > 2 else "2025/05/01"
 end_date = sys.argv[3] if len(sys.argv) > 3 else "2025/05/31"
 
-# URL 編碼處理日期
+# URL 編碼處理 (避免中文字或斜線造成網址解析錯誤)
+encoded_keyword = quote(keyword)
 encoded_start = quote(start_date, safe='')
 encoded_end = quote(end_date, safe='')
 
-url = f"https://web.pcc.gov.tw/prkms/tender/common/basic/readTenderBasic?pageSize=50&firstSearch=true&searchType=basic&tenderName={keyword}&tenderStartDate={encoded_start}&tenderEndDate={encoded_end}"
+# 2. 完整還原政府採購網需要的必填參數 (加入 dateType 與 tenderType)
+url = (
+    f"https://web.pcc.gov.tw/prkms/tender/common/basic/readTenderBasic?"
+    f"pageSize=50&firstSearch=true&searchType=basic&isBinding=N&isLogIn=N&level_1=on"
+    f"&tenderName={encoded_keyword}&tenderType=TENDER_DECLARATION&tenderWay=TENDER_WAY_ALL_DECLARATION"
+    f"&dateType=isDate&tenderStartDate={encoded_start}&tenderEndDate={encoded_end}"
+)
 
+# 3. 偽裝成 Mac 的 Chrome 瀏覽器，避免被政府網站的防火牆阻擋
 headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
 }
 
 def scrape():
-    print(f"開始搜尋: {keyword}, 期間: {start_date} ~ {end_date}")
-    response = requests.get(url, headers=headers)
+    print(f"🔗 正在請求網址: {url}")
+    
+    # 建立 Session，模擬真人先踩首頁拿 Cookie，再進入搜尋頁
+    session = requests.Session()
+    try:
+        session.get("https://web.pcc.gov.tw/prkms/tender/common/basic/indexTenderBasic", headers=headers, timeout=10)
+        response = session.get(url, headers=headers, timeout=10)
+    except Exception as e:
+        print(f"❌ 連線發生錯誤: {e}")
+        return
+    
     if response.status_code != 200:
-        print("無法存取網站")
+        print(f"❌ 無法存取網站，狀態碼: {response.status_code}")
         return
 
+    # 解析 HTML
     soup = BeautifulSoup(response.text, 'html.parser')
     table = soup.find('table', {'id': 'tpam'})
     
     if not table:
-        print("找不到資料或被網站阻擋")
+        print("⚠️ 找不到表格 (id='tpam')。可能是沒有符合條件的標案，或是被網站防爬機制擋住了。")
         return
 
     rows = table.find_all('tr')
     data_list = []
 
+    # 4. 擷取所需欄位 (跳過第0列的標題)
     for row in rows[1:]:
         cols = row.find_all('td')
-        if len(cols) > 5:
+        # 確保有抓到足夠的欄位才去解析 (政府網站表格有時會有隱藏的排版列)
+        if len(cols) >= 9:
             org_name = cols[1].text.strip()
             case_info = cols[2].text.strip().replace('\t', '').replace('\n', ' ')
             date = cols[6].text.strip()
             budget = cols[8].text.strip()
             data_list.append([date, org_name, case_info, budget])
 
-    # 儲存到專案中的 data 資料夾
+    # 5. 確保資料夾存在並存檔
     os.makedirs('data', exist_ok=True)
     with open('data/results.csv', 'w', newline='', encoding='utf-8-sig') as f:
         writer = csv.writer(f)
         writer.writerow(['公告日期', '機關名稱', '標案案號與名稱', '預算金額'])
         writer.writerows(data_list)
-    print(f"成功記錄 {len(data_list)} 筆資料，已存入 data/results.csv")
+        
+    print(f"✅ 成功記錄 {len(data_list)} 筆資料，已存入 data/results.csv")
 
 if __name__ == "__main__":
     scrape()
