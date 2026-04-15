@@ -17,8 +17,14 @@ jobs:
         with:
           python-version: '3.9'
       - run: pip install requests beautifulsoup4
+      
       - name: 執行自動排程爬蟲
+        env: # 👈 關鍵：把 Secrets 裡的密碼拿出來變成環境變數
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python auto_scraper.py
+        
       - name: 儲存多個任務結果
         run: |
           git config --local user.email "action@github.com"
