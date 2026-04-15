@@ -117,8 +117,12 @@
                 const getRes = await fetch(fileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!getRes.ok) throw new Error("找不到 auto_scraper.yml");
                 const data = await getRes.json();
-                const yamlContent = b64_to_utf8(data.content);
-                const match = yamlContent.match(/-\s*cron:\s*['"]?(.*?)['"]?(?=\s*(?:#|$))/);
+                
+                // 移除 base64 可能包含的換行符號
+                const yamlContent = b64_to_utf8(data.content.replace(/\s/g, ''));
+                
+                // 優化正則表達式，使其能更穩定地抓取 cron 值
+                const match = yamlContent.match(/-\s*cron:\s*['"]?([^'"\r\n\s]+)/);
                 
                 if (match && match[1]) {
                     const currentCron = match[1];
