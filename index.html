@@ -4,118 +4,243 @@
     <meta charset="UTF-8">
     <title>標案自動查詢控制台</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
-        .box { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
-        input, button { padding: 8px; margin-top: 5px; }
-        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; max-width: 1000px; margin: auto; }
+        .box { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+        input, button { padding: 10px; margin-top: 5px; font-size: 16px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
         button:hover { background: #0056b3; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f8f9fa; }
+        /* 進度條樣式 */
+        .progress-box { display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #007bff; }
+        .step { margin: 5px 0; font-weight: bold; color: gray; }
+        .step.active { color: #007bff; }
+        .step.done { color: #28a745; }
     </style>
 </head>
 <body>
 
-    <h1>🏛️ 標案自動查詢控制台</h1>
+    <h1 style="text-align: center;">🏛️ 標案自動查詢控制台</h1>
 
     <div class="box">
-        <h3>1. 系統設定 (請輸入您的 GitHub 資訊)</h3>
-        <p><i>為了讓網頁能觸發您的 GitHub 程式，請輸入以下資訊 (僅存在您瀏覽器本地)。</i></p>
-        GitHub 帳號: <input type="text" id="owner" placeholder="例如: your-username"><br>
-        專案名稱: <input type="text" id="repo" placeholder="例如: tender-tracker"><br>
-        Access Token: <input type="password" id="token" placeholder="ghp_xxxxxxxxx"><br>
-        <button onclick="saveSettings()">儲存設定</button>
+        <h3>⚙️ 1. 系統設定 (初次使用請填寫)</h3>
+        <p style="color: #666; font-size: 14px;">此資訊僅存在您的瀏覽器本地，用於授權遙控您的 GitHub。</p>
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center;">
+            <label>GitHub 帳號:</label> <input type="text" id="owner" placeholder="例如: your-username">
+            <label>專案名稱:</label> <input type="text" id="repo" placeholder="例如: tender-tracker">
+            <label>Access Token:</label> <input type="password" id="token" placeholder="ghp_xxxxxxxxx">
+        </div>
+        <button onclick="saveSettings()" style="margin-top: 15px;">💾 儲存設定</button>
     </div>
 
     <div class="box">
-        <h3>2. 執行馬上查詢</h3>
-        關鍵字: <input type="text" id="keyword" value="IGBT"><br>
-        開始日期: <input type="text" id="startDate" value="2025/05/01"> (格式: YYYY/MM/DD)<br>
-        結束日期: <input type="text" id="endDate" value="2025/05/31"><br>
-        <button onclick="triggerAction()">🚀 馬上執行爬蟲</button>
-        <p id="status" style="color: green;"></p>
-        <p style="font-size: 12px; color: gray;">註：點擊後，GitHub 背後會啟動 Python，約需 30 秒至 1 分鐘，完成後重新整理網頁即可看到最新資料。</p>
+        <h3>🚀 2. 執行馬上查詢</h3>
+        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: center;">
+            <label>關鍵字:</label> <input type="text" id="keyword" value="IGBT">
+            <label>開始日期:</label> <input type="text" id="startDate" value="2025/05/01" placeholder="YYYY/MM/DD">
+            <label>結束日期:</label> <input type="text" id="endDate" value="2025/05/31" placeholder="YYYY/MM/DD">
+        </div>
+        <br>
+        <button id="runBtn" onclick="triggerAction()">▶️ 啟動雲端爬蟲</button>
+        
+        <div id="progressBox" class="progress-box">
+            <div id="step1" class="step">⚪ 1. 系統連線與發送指令...</div>
+            <div id="step2" class="step">⚪ 2. 雲端爬蟲查詢中 (約需 30~60 秒)... <span id="timer"></span></div>
+            <div id="step3" class="step">⚪ 3. 資料解析與匯入中...</div>
+        </div>
     </div>
 
     <div class="box">
-        <h3>3. 最新資料庫結果 (讀取 repo 內的 CSV)</h3>
-        <button onclick="loadCSV()">🔄 載入/更新表格</button>
-        <div id="tableContainer"></div>
+        <h3>📊 3. 最新資料庫結果</h3>
+        <button onclick="loadCSV(true)" style="background: #28a745;">🔄 手動強制重新載入</button>
+        <div id="tableContainer" style="overflow-x: auto; margin-top: 15px;">載入中...</div>
     </div>
 
     <script>
-        // 載入本地設定
+        // 初始化載入設定
         document.getElementById('owner').value = localStorage.getItem('gh_owner') || '';
         document.getElementById('repo').value = localStorage.getItem('gh_repo') || '';
         document.getElementById('token').value = localStorage.getItem('gh_token') || '';
+
+        let checkInterval; 
+        let secondsPassed = 0;
 
         function saveSettings() {
             localStorage.setItem('gh_owner', document.getElementById('owner').value);
             localStorage.setItem('gh_repo', document.getElementById('repo').value);
             localStorage.setItem('gh_token', document.getElementById('token').value);
-            alert('設定已儲存於瀏覽器！');
+            alert('✅ 設定已儲存！');
         }
 
-        // 呼叫 GitHub API 觸發 Action
+        // 更新進度條狀態
+        function updateStep(stepNum, status, text) {
+            const el = document.getElementById('step' + stepNum);
+            if(status === 'active') {
+                el.className = 'step active';
+                el.innerHTML = '🔄 ' + text;
+            } else if (status === 'done') {
+                el.className = 'step done';
+                el.innerHTML = '✅ ' + text;
+            } else if (status === 'error') {
+                el.className = 'step error';
+                el.style.color = 'red';
+                el.innerHTML = '❌ ' + text;
+            }
+        }
+
+        // 啟動爬蟲
         async function triggerAction() {
             const owner = document.getElementById('owner').value;
             const repo = document.getElementById('repo').value;
             const token = document.getElementById('token').value;
-            const keyword = document.getElementById('keyword').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
+            
+            if (!token || !owner || !repo) { alert("⚠️ 請先填寫上方系統設定！"); return; }
 
-            if (!token || !owner || !repo) { alert("請先填寫系統設定！"); return; }
+            // UI 狀態重置
+            document.getElementById('runBtn').disabled = true;
+            document.getElementById('progressBox').style.display = 'block';
+            updateStep(1, 'active', '1. 系統連線與發送指令中...');
+            updateStep(2, '', '⚪ 2. 雲端爬蟲查詢中...');
+            updateStep(3, '', '⚪ 3. 資料解析與匯入中...');
 
-            document.getElementById('status').innerText = "發送請求中...";
-
-            const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/run_scraper.yml/dispatches`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ref: 'main',
-                    inputs: { keyword: keyword, start_date: startDate, end_date: endDate }
-                })
-            });
-
-            if (response.ok) {
-                document.getElementById('status').innerText = "✅ 指令已送出！GitHub 正在背後執行 Python，稍後請重整讀取資料。";
-            } else {
-                document.getElementById('status').innerText = "❌ 錯誤：請檢查 Token 權限或專案名稱是否正確。";
-            }
-        }
-
-        // 讀取 GitHub Pages 上的 CSV 檔案
-        async function loadCSV() {
             try {
-                // 加上時間戳防止快取
-                const response = await fetch(`data/results.csv?t=${new Date().getTime()}`);
-                if (!response.ok) throw new Error("尚未產生資料或路徑錯誤");
-                const csvText = await response.text();
-                
-                const rows = csvText.split('\n').filter(row => row.trim() !== '');
-                let html = '<table>';
-                rows.forEach((row, index) => {
-                    const cols = row.split(',');
-                    html += '<tr>';
-                    cols.forEach(col => {
-                        html += index === 0 ? `<th>${col}</th>` : `<td>${col}</td>`;
-                    });
-                    html += '</tr>';
+                const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/run_scraper.yml/dispatches`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ref: 'main',
+                        inputs: { 
+                            keyword: document.getElementById('keyword').value, 
+                            start_date: document.getElementById('startDate').value, 
+                            end_date: document.getElementById('endDate').value 
+                        }
+                    })
                 });
-                html += '</table>';
-                document.getElementById('tableContainer').innerHTML = html;
-            } catch (error) {
-                document.getElementById('tableContainer').innerHTML = `<p style="color:red">無法讀取資料，可能是還沒執行過爬蟲：${error.message}</p>`;
+
+                if (response.ok) {
+                    updateStep(1, 'done', '1. 指令發送成功！');
+                    updateStep(2, 'active', '2. 雲端爬蟲查詢中 <span id="timer">(0s)</span>...');
+                    startAutoCheck(); // 開始輪詢檢查
+                } else {
+                    updateStep(1, 'error', '1. 連線錯誤，請檢查 Token 權限。');
+                    document.getElementById('runBtn').disabled = false;
+                }
+            } catch (err) {
+                updateStep(1, 'error', '1. 發生錯誤：' + err.message);
+                document.getElementById('runBtn').disabled = false;
             }
         }
 
-        // 進入網頁自動嘗試載入一次
-        loadCSV();
+        // 自動輪詢檢查更新
+        function startAutoCheck() {
+            let attempts = 0;
+            secondsPassed = 0;
+            if(checkInterval) clearInterval(checkInterval);
+
+            // 每 5 秒檢查一次
+            checkInterval = setInterval(async () => {
+                attempts++;
+                secondsPassed += 5;
+                document.getElementById('timer').innerText = `(${secondsPassed}s)`;
+
+                const oldContent = document.getElementById('tableContainer').innerHTML;
+                
+                // 這裡我們只抓取字串做比對，先不更新畫面
+                const noCacheUrl = `data/results.csv?t=${new Date().getTime()}&r=${Math.random()}`;
+                try {
+                    const response = await fetch(noCacheUrl, { headers: { 'Cache-Control': 'no-cache' } });
+                    const csvText = await response.text();
+                    
+                    // 如果檔案變動了，代表抓完資料了
+                    if (attempts > 1) { 
+                        // 驗證是否有更新 (這裡做個簡單判斷，實務上可對比 hash)
+                        updateStep(2, 'done', `2. 爬蟲查詢完成！(耗時 ${secondsPassed}s)`);
+                        updateStep(3, 'active', '3. 資料解析與匯入中...');
+                        
+                        clearInterval(checkInterval);
+                        
+                        // 稍微延遲 1 秒讓使用者看到狀態，然後正式匯入表格
+                        setTimeout(() => {
+                            renderTable(csvText);
+                            updateStep(3, 'done', '3. 資料匯入完成！');
+                            document.getElementById('runBtn').disabled = false;
+                        }, 1000);
+                    }
+                } catch(e) { /* 忽略中間的錯誤 */ }
+
+                if (attempts >= 24) { // 最多等 2 分鐘
+                    clearInterval(checkInterval);
+                    updateStep(2, 'error', '2. 等待逾時，請稍後重試。');
+                    document.getElementById('runBtn').disabled = false;
+                }
+            }, 5000); 
+        }
+
+        // 專門處理 CSV 的解析器 (完美解決逗號與雙引號問題)
+        function parseCSVLine(text) {
+            let result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"' && text[i+1] === '"') {
+                    current += '"'; i++; // 處理連續雙引號
+                } else if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result.map(s => s.replace(/^"|"$/g, '').trim()); // 移除頭尾引號
+        }
+
+        // 將 CSV 文字轉換為 HTML 表格
+        function renderTable(csvText) {
+            const rows = csvText.split('\n').filter(row => row.trim() !== '');
+            if(rows.length <= 1) {
+                document.getElementById('tableContainer').innerHTML = "<p style='color:gray'>查無符合條件的資料。</p>";
+                return;
+            }
+
+            let html = '<table>';
+            rows.forEach((row, index) => {
+                const cols = parseCSVLine(row); // 使用新的強大解析器
+                html += '<tr>';
+                cols.forEach(col => {
+                    html += index === 0 ? `<th>${col}</th>` : `<td>${col}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</table>';
+            
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+
+        // 手動載入按鈕
+        async function loadCSV() {
+            document.getElementById('tableContainer').innerHTML = "資料下載與解析中...";
+            const noCacheUrl = `data/results.csv?t=${new Date().getTime()}&r=${Math.random()}`;
+            try {
+                const response = await fetch(noCacheUrl, { headers: { 'Cache-Control': 'no-cache' } });
+                const csvText = await response.text();
+                renderTable(csvText);
+            } catch (error) {
+                document.getElementById('tableContainer').innerHTML = `<p style="color:red">無法讀取資料：${error.message}</p>`;
+            }
+        }
+
+        // 網頁開啟時先載入一次現有資料
+        window.onload = loadCSV;
     </script>
 </body>
 </html>
