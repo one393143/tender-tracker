@@ -263,8 +263,8 @@ def _find_field(soup, table_class, label):
             return _detail_clean(cells[1].get_text(' '))
     return ''
 
-def _extract_prkms(soup):
-    """從新版 prkms 詳細頁解析所有詳細欄位"""
+def _extract_detail(soup):
+    """從新舊版（prkms/tps）詳細頁解析所有詳細欄位"""
     result = {h: '' for h in DB_DETAIL_HEADERS}
     result['機關地址']     = _find_field(soup, 'tb_01', '機關地址')
     result['聯絡人']       = _find_field(soup, 'tb_01', '聯絡人')
@@ -301,7 +301,7 @@ def _extract_prkms(soup):
     if result['機關地址'] or result['聯絡人']:
         result['詳細資料狀態'] = '✅ 已擷取'
     else:
-        result['詳細資料狀態'] = '⚠️ prkms但欄位空白'
+        result['詳細資料狀態'] = '⚠️ 頁面抓取成功但欄位空白'
     return result
 
 def enrich_database_details(max_per_run=DETAIL_MAX_PER_RUN):
@@ -325,7 +325,7 @@ def enrich_database_details(max_per_run=DETAIL_MAX_PER_RUN):
     # 條件：詳細資料狀態 為空 或 非「已擷取」且非「舊版跳過」
     seen_urls = set()
     to_enrich = []  # list of (url, row_index)
-    skip_statuses = {'✅ 已擷取', '⏭️ 舊版頁面(tps)', '⚠️ prkms但欄位空白'}
+    skip_statuses = {'✅ 已擷取', '⚠️ 頁面抓取成功但欄位空白', '⚠️ prkms但欄位空白'}
     for i, row in enumerate(all_rows):
         url = row.get('連結', '').strip()
         status = row.get('詳細資料狀態', '').strip()
@@ -378,16 +378,13 @@ def enrich_database_details(max_per_run=DETAIL_MAX_PER_RUN):
             if resp.status_code != 200:
                 print(f"   ❌ HTTP {resp.status_code}")
                 url_detail_cache[url] = {'詳細資料狀態': f'❌ HTTP {resp.status_code}'}
-            elif 'prkms' in final_url and 'tps' not in final_url:
+            else:
                 soup = BeautifulSoup(resp.text, 'html.parser')
-                detail = _extract_prkms(soup)
+                detail = _extract_detail(soup)
                 url_detail_cache[url] = detail
                 status = detail.get('詳細資料狀態', '')
                 print(f"   {status} | {detail.get('聯絡人','')} | {detail.get('電子郵件信箱','')}")
                 enriched_count += 1
-            else:
-                print(f"   ⏭️ 舊版頁面(tps)，跳過")
-                url_detail_cache[url] = {'詳細資料狀態': '⏭️ 舊版頁面(tps)'}
 
         except Exception as e:
             print(f"   ❌ 錯誤: {e}")
