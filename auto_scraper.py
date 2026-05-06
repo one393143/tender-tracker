@@ -3,12 +3,18 @@ from bs4 import BeautifulSoup
 import csv
 import os
 import json
-import glob  
+import glob
 import smtplib  # 👈 寄信模組
 from email.mime.text import MIMEText  # 👈 信件內容模組
 from email.mime.multipart import MIMEMultipart
 from urllib.parse import quote
 from datetime import datetime, timedelta
+
+# --- 資料庫相關設定 ---
+DATABASE_FILE = 'data/database.csv'
+DB_HEADERS = ['搜尋關鍵字', '招標類型', '公告日期', '機關名稱', '標案案號', '標案名稱', '採購性質', '截止投標', '預算金額', '連結']
+# 唯一鍵：這三欄組合一致才算「完全相同」，任一不同就是不同記錄
+DB_UNIQUE_KEYS = ['招標類型', '標案案號', '公告日期']
 
 # --- 1. 自動計算過去 30 天的日期 ---
 today = datetime.now()
@@ -82,27 +88,70 @@ def send_notification(task_count, total_records, details_text):
         print(f"❌ 寄信失敗：{e}")
 
 
+def merge_into_database(new_rows_with_keyword):
+    """
+    將新抓到的資料合併進 database.csv，以 DB_UNIQUE_KEYS 作為唯一鍵去重。
+    new_rows_with_keyword: list of dict，每個 dict 的 key 對應 DB_HEADERS
+    回傳: (新增筆數, 略過重複筆數)
+    """
+    os.makedirs('data', exist_ok=True)
+    existing_records = {}  # key: (招標類型, 標案案號, 公告日期) -> row dict
+
+    # 讀取現有資料庫
+    if os.path.exists(DATABASE_FILE):
+        with open(DATABASE_FILE, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                unique_key = tuple(row.get(k, '').strip() for k in DB_UNIQUE_KEYS)
+                existing_records[unique_key] = row
+
+    added_count = 0
+    skipped_count = 0
+
+    for row in new_rows_with_keyword:
+        unique_key = tuple(row.get(k, '').strip() for k in DB_UNIQUE_KEYS)
+        if unique_key not in existing_records:
+            existing_records[unique_key] = row
+            added_count += 1
+        else:
+            skipped_count += 1
+
+    # 依照公告日期由新到舊排序後寫回
+    all_rows = list(existing_records.values())
+    try:
+        all_rows.sort(key=lambda r: r.get('公告日期', ''), reverse=True)
+    except Exception:
+        pass  # 排序失敗時保持原順序
+
+    with open(DATABASE_FILE, 'w', newline='', encoding='utf-8-sig') as f:
+        writer = csv.DictWriter(f, fieldnames=DB_HEADERS)
+        writer.writeheader()
+        writer.writerows(all_rows)
+
+    return added_count, skipped_count
+
+
 def scrape_task(task):
-    task_id = str(task.get('id', 'default')) 
+    task_id = str(task.get('id', 'default'))
     keyword = task.get('keyword', '')
-    types = task.get('types', ["招標公告"]) 
-    
+    types = task.get('types', ["招標公告"])
+
     encoded_keyword = quote(keyword)
-    all_data = []
+    all_data = []  # list of list，欄位順序: [招標類型, 公告日期, 機關名稱, 標案案號, 標案名稱, 採購性質, 截止投標, 預算金額, 連結]
 
     print(f"🚀 開始執行任務: [{keyword}], 搜尋過去30天 ({start_date_str} ~ {end_date_str})")
 
     session = requests.Session()
     try:
         session.get("https://web.pcc.gov.tw/prkms/tender/common/basic/indexTenderBasic", headers=headers, timeout=10)
-    except:
+    except Exception:
         print("連線首頁失敗")
         return 0
 
     for t_name in types:
         tender_type_code = TYPE_MAP.get(t_name, "TENDER_DECLARATION")
         print(f"  👉 正在查詢: {t_name}")
-        
+
         url = (
             f"https://web.pcc.gov.tw/prkms/tender/common/basic/readTenderBasic?"
             f"pageSize=100&firstSearch=true&searchType=basic&isBinding=N&isLogIn=N&level_1=on"
@@ -121,35 +170,59 @@ def scrape_task(task):
                         cols = row.find_all('td')
                         if len(cols) >= 10:
                             org_name = cols[1].text.strip()
-                            
+
                             # cols[2] 案號
                             case_no = cols[2].contents[0].strip()
-                            
+
                             nature = cols[5].text.strip()
                             date = cols[6].text.strip()
                             deadline = cols[7].text.strip()
                             budget = cols[8].text.strip()
-                            
+
                             # 由最後一欄擷取連結與標案名稱 (閃避 JS 混淆)
                             link_tag = cols[9].find('a')
                             link = f"https://web.pcc.gov.tw{link_tag['href']}" if link_tag else ""
                             case_name = ""
                             if link_tag and 'title' in link_tag.attrs:
                                 case_name = link_tag['title'].replace('檢視 標案名稱:', '').strip()
-                            
+
                             all_data.append([t_name, date, org_name, case_no, case_name, nature, deadline, budget, link])
         except Exception as e:
             print(f"    ❌ 查詢 {t_name} 發生錯誤: {e}")
 
+    # --- 寫入本次查詢結果 (task_*.csv，每次覆蓋，僅保留近30天) ---
     os.makedirs('data', exist_ok=True)
     filename = f"data/task_{task_id}.csv"
     with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
         writer = csv.writer(f)
         writer.writerow(['招標類型', '公告日期', '機關名稱', '標案案號', '標案名稱', '採購性質', '截止投標', '預算金額', '連結'])
         writer.writerows(all_data)
-        
-    print(f"✅ 任務 [{keyword}] 完成，共 {len(all_data)} 筆，存入 {filename}\n")
-    return len(all_data) # 👈 回傳抓到的數量給寄信功能使用
+
+    print(f"  📄 本次結果已存入 {filename}（{len(all_data)} 筆）")
+
+    # --- 合併進永久資料庫 (database.csv) ---
+    # 將 list of list 轉換為 list of dict 以便 merge 函式使用
+    rows_for_db = []
+    for row in all_data:
+        # row 欄位順序: [招標類型, 公告日期, 機關名稱, 標案案號, 標案名稱, 採購性質, 截止投標, 預算金額, 連結]
+        rows_for_db.append({
+            '搜尋關鍵字': keyword,
+            '招標類型':   row[0],
+            '公告日期':   row[1],
+            '機關名稱':   row[2],
+            '標案案號':   row[3],
+            '標案名稱':   row[4],
+            '採購性質':   row[5],
+            '截止投標':   row[6],
+            '預算金額':   row[7],
+            '連結':       row[8],
+        })
+
+    added, skipped = merge_into_database(rows_for_db)
+    print(f"  🗄️ 資料庫更新: 新增 {added} 筆，略過重複 {skipped} 筆\n")
+
+    print(f"✅ 任務 [{keyword}] 完成，共抓到 {len(all_data)} 筆\n")
+    return len(all_data)  # 👈 回傳抓到的數量給寄信功能使用
 
 
 if __name__ == "__main__":
@@ -195,7 +268,13 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"  ❌ 刪除檔案 {filename} 失敗: {e}")
                 
+    # --- 印出資料庫最新統計 ---
+    if os.path.exists(DATABASE_FILE):
+        with open(DATABASE_FILE, 'r', encoding='utf-8-sig') as f:
+            db_total = sum(1 for _ in f) - 1  # 減去標題列
+        print(f"\n🗄️ 永久資料庫 ({DATABASE_FILE}) 目前累計共 {db_total} 筆記錄。")
+
     # --- 執行完畢後，寄送通知信 ---
     send_notification(len(tasks), total_records_found, task_details_text)
-    
+
     print("✨ 自動排程、清理與通知作業全數完成！")

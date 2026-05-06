@@ -17,18 +17,21 @@ jobs:
         with:
           python-version: '3.9'
       - run: pip install requests beautifulsoup4
-      
-      - name: 執行自動排程爬蟲
-        env: # 👈 關鍵：把 Secrets 裡的密碼拿出來變成環境變數
+
+      - name: 初始化資料庫（首次執行時將歷史 CSV 匯入，之後為 no-op）
+        run: python migrate_to_database.py
+
+      - name: 執行自動排程爬蟲（結果自動合併進 database.csv）
+        env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python auto_scraper.py
-        
-      - name: 儲存多個任務結果
+
+      - name: 儲存所有更新（task_*.csv + database.csv）
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/
-          git commit -m "Auto Update: 每日排程任務更新" || echo "無變動"
+          git commit -m "Auto Update: 每日排程任務 + 資料庫累積更新" || echo "無變動，跳過 commit"
           git push
