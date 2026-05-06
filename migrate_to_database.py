@@ -17,8 +17,10 @@ import os
 import glob
 
 DATABASE_FILE = 'data/database.csv'
-DB_HEADERS = ['搜尋關鍵字', '招標類型', '公告日期', '機關名稱', '標案案號', '標案名稱', '採購性質', '截止投標', '預算金額', '連結']
-DB_UNIQUE_KEYS = ['招標類型', '標案案號', '公告日期']
+DB_BASE_HEADERS   = ['搜尋關鍵字', '招標類型', '公告日期', '機關名稱', '標案案號', '標案名稱', '採購性質', '截止投標', '預算金額', '連結']
+DB_DETAIL_HEADERS = ['機關地址', '聯絡人', '聯絡電話', '電子郵件信箱', '決標方式', '附加說明', '詳細資料狀態']
+DB_HEADERS        = DB_BASE_HEADERS + DB_DETAIL_HEADERS
+DB_UNIQUE_KEYS    = ['招標類型', '標案案號', '公告日期']
 
 def load_existing_database():
     """讀取現有 database.csv，回傳 dict {unique_key: row_dict}"""
@@ -43,9 +45,12 @@ def write_database(records_dict):
         pass
 
     with open(DATABASE_FILE, 'w', newline='', encoding='utf-8-sig') as f:
-        writer = csv.DictWriter(f, fieldnames=DB_HEADERS)
+        writer = csv.DictWriter(f, fieldnames=DB_HEADERS, extrasaction='ignore')
         writer.writeheader()
-        writer.writerows(all_rows)
+        for r in all_rows:
+            for h in DB_HEADERS:
+                r.setdefault(h, '')
+            writer.writerow(r)
     print(f"  💾 已寫入 {DATABASE_FILE}，共 {len(all_rows)} 筆")
 
 

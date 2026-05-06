@@ -7,158 +7,61 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, sans-serif; background: #f0f2f5; color: #222; }
-
-        /* 頂部 Header */
-        .header {
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            color: white;
-            padding: 18px 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
+        .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
         .header h1 { font-size: 20px; font-weight: bold; }
-        .back-btn {
-            color: #aac4ff;
-            text-decoration: none;
-            font-size: 14px;
-            padding: 6px 14px;
-            border: 1px solid #aac4ff;
-            border-radius: 6px;
-            transition: background 0.2s;
-        }
+        .back-btn { color: #aac4ff; text-decoration: none; font-size: 14px; padding: 6px 14px; border: 1px solid #aac4ff; border-radius: 6px; transition: background 0.2s; }
         .back-btn:hover { background: rgba(170,196,255,0.15); }
-
-        /* 主體 */
         .main { max-width: 1400px; margin: 24px auto; padding: 0 16px 40px; }
-
-        /* 篩選區 */
-        .filter-box {
-            background: #fff;
-            border-radius: 10px;
-            padding: 20px 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        }
+        .filter-box { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
         .filter-box h3 { font-size: 15px; color: #444; margin-bottom: 16px; }
-        .filter-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
-        }
-        .filter-item label {
-            display: block;
-            font-size: 12px;
-            color: #777;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .filter-item input, .filter-item select {
-            width: 100%;
-            padding: 8px 10px;
-            font-size: 13px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background: #fafafa;
-            transition: border-color 0.2s;
-        }
-        .filter-item input:focus, .filter-item select:focus {
-            outline: none;
-            border-color: #007bff;
-            background: #fff;
-        }
-        .filter-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 14px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
+        .filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+        .filter-item label { display: block; font-size: 12px; color: #777; font-weight: bold; margin-bottom: 5px; }
+        .filter-item input, .filter-item select { width: 100%; padding: 8px 10px; font-size: 13px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa; transition: border-color 0.2s; }
+        .filter-item input:focus, .filter-item select:focus { outline: none; border-color: #007bff; background: #fff; }
+        .filter-actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
         .btn { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.2s; }
         .btn-primary { background: #007bff; color: white; }
         .btn-primary:hover { background: #0056b3; }
         .btn-reset { background: #f0f2f5; color: #555; border: 1px solid #ccc; }
         .btn-reset:hover { background: #e2e6ea; }
         .result-count { font-size: 13px; color: #888; margin-left: auto; }
-
-        /* 資料表格 */
-        .table-box {
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            overflow: hidden;
-        }
+        .table-box { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
         .table-scroll { overflow-x: auto; }
         table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 900px; }
         thead tr { background: #1a1a2e; color: white; }
-        th {
-            padding: 12px 14px;
-            text-align: left;
-            white-space: nowrap;
-            cursor: pointer;
-            user-select: none;
-            position: relative;
-        }
+        th { padding: 12px 14px; text-align: left; white-space: nowrap; cursor: pointer; user-select: none; }
         th:hover { background: #2a2a4e; }
-        th .sort-icon { margin-left: 4px; opacity: 0.5; font-style: normal; font-size: 11px; }
-        th.sort-asc .sort-icon::after { content: ' ▲'; opacity: 1; }
-        th.sort-desc .sort-icon::after { content: ' ▼'; opacity: 1; }
+        th .sort-icon { margin-left: 4px; font-style: normal; font-size: 11px; opacity: 0.6; }
+        th.sort-asc .sort-icon::after { content: ' ▲'; }
+        th.sort-desc .sort-icon::after { content: ' ▼'; }
         th:not(.sort-asc):not(.sort-desc) .sort-icon::after { content: ' ⇅'; }
-
-        tbody tr { border-bottom: 1px solid #eee; transition: background 0.1s; }
-        tbody tr:hover { background: #f0f7ff; }
+        tbody tr.main-row { border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.1s; }
+        tbody tr.main-row:hover { background: #f0f7ff; }
+        tbody tr.detail-row { display: none; background: #f8faff; border-bottom: 2px solid #dce8ff; }
+        tbody tr.detail-row.open { display: table-row; }
         td { padding: 10px 14px; vertical-align: middle; }
         td.nowrap { white-space: nowrap; }
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            white-space: nowrap;
-        }
+        .expand-icon { display: inline-block; width: 18px; font-size: 12px; color: #999; transition: transform 0.2s; }
+        tr.main-row.expanded .expand-icon { transform: rotate(90deg); color: #007bff; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; white-space: nowrap; }
         .badge-blue { background: #dbeafe; color: #1d4ed8; }
         .badge-green { background: #dcfce7; color: #15803d; }
         .badge-orange { background: #ffedd5; color: #c2410c; }
         .badge-purple { background: #ede9fe; color: #6d28d9; }
         .badge-gray { background: #f3f4f6; color: #6b7280; }
-        .view-btn {
-            display: inline-block;
-            padding: 4px 10px;
-            background: #28a745;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-            white-space: nowrap;
-        }
+        .view-btn { display: inline-block; padding: 4px 10px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: bold; white-space: nowrap; }
         .view-btn:hover { background: #218838; }
-
-        /* 狀態訊息 */
+        /* 詳細資訊展開區 */
+        .detail-panel { padding: 14px 20px 14px 38px; }
+        .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 24px; }
+        .detail-field { display: flex; flex-direction: column; }
+        .detail-label { font-size: 11px; color: #888; font-weight: bold; margin-bottom: 3px; }
+        .detail-value { font-size: 13px; color: #333; }
+        .detail-note { font-size: 12px; color: #555; line-height: 1.6; background: #eef2ff; border-left: 3px solid #4f87f6; border-radius: 0 4px 4px 0; padding: 8px 12px; margin-top: 10px; white-space: pre-wrap; word-break: break-all; }
+        .detail-status-pending { font-size: 11px; color: #aaa; font-style: italic; }
         .msg { text-align: center; padding: 60px 20px; color: #999; font-size: 15px; }
-
-        /* 分頁 */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 6px;
-            padding: 16px;
-            border-top: 1px solid #eee;
-            flex-wrap: wrap;
-        }
-        .page-btn {
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 13px;
-            background: #fff;
-            color: #333;
-            transition: background 0.15s;
-        }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 16px; border-top: 1px solid #eee; flex-wrap: wrap; }
+        .page-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; font-size: 13px; background: #fff; color: #333; transition: background 0.15s; }
         .page-btn:hover { background: #e9ecef; }
         .page-btn.active { background: #007bff; color: white; border-color: #007bff; }
         .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -166,70 +69,27 @@
     </style>
 </head>
 <body>
-
 <div class="header">
     <h1>🗄️ 完整標案資料庫</h1>
     <a href="index.html" class="back-btn">← 返回控制台</a>
 </div>
-
 <div class="main">
     <!-- 篩選區 -->
     <div class="filter-box">
         <h3>🔍 篩選 / 搜尋</h3>
         <div class="filter-grid">
-            <div class="filter-item">
-                <label>搜尋關鍵字（任意欄）</label>
-                <input type="text" id="f_any" placeholder="輸入任意文字...">
-            </div>
-            <div class="filter-item">
-                <label>搜尋關鍵字（任務分類）</label>
-                <select id="f_keyword">
-                    <option value="">全部</option>
-                </select>
-            </div>
-            <div class="filter-item">
-                <label>招標類型</label>
-                <select id="f_type">
-                    <option value="">全部</option>
-                    <option>招標公告</option>
-                    <option>公開徵求</option>
-                    <option>公開閱覽</option>
-                    <option>政府採購預告</option>
-                </select>
-            </div>
-            <div class="filter-item">
-                <label>機關名稱</label>
-                <input type="text" id="f_org" placeholder="輸入機關名稱...">
-            </div>
-            <div class="filter-item">
-                <label>採購性質</label>
-                <select id="f_nature">
-                    <option value="">全部</option>
-                    <option>財物類</option>
-                    <option>工程類</option>
-                    <option>勞務類</option>
-                </select>
-            </div>
-            <div class="filter-item">
-                <label>標案案號</label>
-                <input type="text" id="f_caseno" placeholder="輸入案號...">
-            </div>
-            <div class="filter-item">
-                <label>公告日期（起）</label>
-                <input type="text" id="f_date_from" placeholder="例：115/04/01">
-            </div>
-            <div class="filter-item">
-                <label>公告日期（迄）</label>
-                <input type="text" id="f_date_to" placeholder="例：115/05/31">
-            </div>
-            <div class="filter-item">
-                <label>預算金額（最低，元）</label>
-                <input type="number" id="f_budget_min" placeholder="例：100000">
-            </div>
-            <div class="filter-item">
-                <label>預算金額（最高，元）</label>
-                <input type="number" id="f_budget_max" placeholder="例：5000000">
-            </div>
+            <div class="filter-item"><label>搜尋關鍵字（任意欄）</label><input type="text" id="f_any" placeholder="輸入任意文字..."></div>
+            <div class="filter-item"><label>搜尋關鍵字（任務分類）</label><select id="f_keyword"><option value="">全部</option></select></div>
+            <div class="filter-item"><label>招標類型</label><select id="f_type"><option value="">全部</option><option>招標公告</option><option>公開徵求</option><option>公開閱覽</option><option>政府採購預告</option></select></div>
+            <div class="filter-item"><label>機關名稱</label><input type="text" id="f_org" placeholder="輸入機關名稱..."></div>
+            <div class="filter-item"><label>採購性質</label><select id="f_nature"><option value="">全部</option><option>財物類</option><option>工程類</option><option>勞務類</option></select></div>
+            <div class="filter-item"><label>標案案號</label><input type="text" id="f_caseno" placeholder="輸入案號..."></div>
+            <div class="filter-item"><label>公告日期（起）</label><input type="text" id="f_date_from" placeholder="例：115/04/01"></div>
+            <div class="filter-item"><label>公告日期（迄）</label><input type="text" id="f_date_to" placeholder="例：115/05/31"></div>
+            <div class="filter-item"><label>預算金額（最低，元）</label><input type="number" id="f_budget_min" placeholder="例：100000"></div>
+            <div class="filter-item"><label>預算金額（最高，元）</label><input type="number" id="f_budget_max" placeholder="例：5000000"></div>
+            <div class="filter-item"><label>聯絡人 / 機關地址</label><input type="text" id="f_contact" placeholder="輸入聯絡人或地址..."></div>
+            <div class="filter-item"><label>決標方式</label><select id="f_award"><option value="">全部</option><option>最低標</option><option>最有利標</option><option>固定價格</option></select></div>
         </div>
         <div class="filter-actions">
             <button class="btn btn-primary" onclick="applyFilter()">套用篩選</button>
@@ -237,28 +97,24 @@
             <span class="result-count" id="resultCount"></span>
         </div>
     </div>
-
     <!-- 表格 -->
     <div class="table-box">
         <div class="table-scroll">
             <table id="dataTable">
-                <thead>
-                    <tr>
-                        <th data-col="搜尋關鍵字" onclick="sortBy('搜尋關鍵字', this)">搜尋關鍵字<i class="sort-icon"></i></th>
-                        <th data-col="招標類型" onclick="sortBy('招標類型', this)">招標類型<i class="sort-icon"></i></th>
-                        <th data-col="公告日期" onclick="sortBy('公告日期', this)">公告日期<i class="sort-icon"></i></th>
-                        <th data-col="機關名稱" onclick="sortBy('機關名稱', this)">機關名稱<i class="sort-icon"></i></th>
-                        <th data-col="標案案號" onclick="sortBy('標案案號', this)">標案案號<i class="sort-icon"></i></th>
-                        <th data-col="標案名稱" onclick="sortBy('標案名稱', this)">標案名稱<i class="sort-icon"></i></th>
-                        <th data-col="採購性質" onclick="sortBy('採購性質', this)">採購性質<i class="sort-icon"></i></th>
-                        <th data-col="截止投標" onclick="sortBy('截止投標', this)">截止投標<i class="sort-icon"></i></th>
-                        <th data-col="預算金額" onclick="sortBy('預算金額', this)">預算金額<i class="sort-icon"></i></th>
-                        <th>連結</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    <tr><td colspan="10" class="msg">⏳ 資料載入中...</td></tr>
-                </tbody>
+                <thead><tr>
+                    <th style="width:32px"></th>
+                    <th data-col="搜尋關鍵字" onclick="sortBy('搜尋關鍵字',this)">搜尋關鍵字<i class="sort-icon"></i></th>
+                    <th data-col="招標類型" onclick="sortBy('招標類型',this)">招標類型<i class="sort-icon"></i></th>
+                    <th data-col="公告日期" onclick="sortBy('公告日期',this)">公告日期<i class="sort-icon"></i></th>
+                    <th data-col="機關名稱" onclick="sortBy('機關名稱',this)">機關名稱<i class="sort-icon"></i></th>
+                    <th data-col="標案案號" onclick="sortBy('標案案號',this)">標案案號<i class="sort-icon"></i></th>
+                    <th data-col="標案名稱" onclick="sortBy('標案名稱',this)">標案名稱<i class="sort-icon"></i></th>
+                    <th data-col="採購性質" onclick="sortBy('採購性質',this)">採購性質<i class="sort-icon"></i></th>
+                    <th data-col="截止投標" onclick="sortBy('截止投標',this)">截止投標<i class="sort-icon"></i></th>
+                    <th data-col="預算金額" onclick="sortBy('預算金額',this)">預算金額<i class="sort-icon"></i></th>
+                    <th>連結</th>
+                </tr></thead>
+                <tbody id="tableBody"><tr><td colspan="11" class="msg">⏳ 資料載入中...</td></tr></tbody>
             </table>
         </div>
         <div class="pagination" id="pagination"></div>
@@ -270,51 +126,39 @@ const OWNER = 'one393143';
 const REPO  = 'tender-tracker';
 const PAGE_SIZE = 50;
 
-// 欄位順序（對應 CSV 標題）
-const COLS = ['搜尋關鍵字','招標類型','公告日期','機關名稱','標案案號','標案名稱','採購性質','截止投標','預算金額','連結'];
-
-let allData = [];       // 原始全部資料（row 為 object）
-let filtered = [];      // 篩選後資料
-let sortCol = '公告日期';
-let sortDir = 'desc';   // 'asc' | 'desc'
+let allData = [], filtered = [];
+let sortCol = '公告日期', sortDir = 'desc';
 let currentPage = 1;
 
-// ── 解析 CSV（支援引號內逗號）─────────────────────────────
 function parseCSV(text) {
     const lines = text.split('\n').filter(l => l.trim());
     if (lines.length < 2) return [];
-    const headers = splitCSVRow(lines[0]);
+    const headers = splitRow(lines[0]);
     return lines.slice(1).map(line => {
-        const vals = splitCSVRow(line);
+        const vals = splitRow(line);
         const obj = {};
         headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
         return obj;
     });
 }
-
-function splitCSVRow(row) {
-    const result = [];
-    let cur = '', inQ = false;
+function splitRow(row) {
+    const res = []; let cur = '', inQ = false;
     for (let i = 0; i < row.length; i++) {
         const c = row[i];
         if (c === '"' && row[i+1] === '"') { cur += '"'; i++; }
         else if (c === '"') inQ = !inQ;
-        else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+        else if (c === ',' && !inQ) { res.push(cur); cur = ''; }
         else cur += c;
     }
-    result.push(cur);
-    return result.map(s => s.replace(/^"|"$/g, '').trim());
+    res.push(cur);
+    return res.map(s => s.replace(/^"|"$/g,'').trim());
 }
 
-// ── 載入資料 ────────────────────────────────────────────
 async function loadData() {
     setMsg('⏳ 資料載入中，請稍候...');
     try {
-        // 先嘗試直接抓 raw（Pages 上有效）
         const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/data/database.csv?t=${Date.now()}`;
         let res = await fetch(rawUrl);
-
-        // 若失敗再嘗試 API（需要 token，不一定有）
         if (!res.ok) {
             const token = localStorage.getItem('gh_token') || '';
             if (!token) throw new Error('資料載入失敗，請先在控制台輸入密碼後再試。');
@@ -324,188 +168,165 @@ async function loadData() {
             );
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const text = await res.text();
-        allData = parseCSV(text);
-
-        // 填入「搜尋關鍵字」下拉選單
-        const keywords = [...new Set(allData.map(r => r['搜尋關鍵字']).filter(Boolean))].sort();
+        allData = parseCSV(await res.text());
+        const kws = [...new Set(allData.map(r => r['搜尋關鍵字']).filter(Boolean))].sort();
         const sel = document.getElementById('f_keyword');
-        keywords.forEach(kw => {
-            const opt = document.createElement('option');
-            opt.value = kw; opt.textContent = kw;
-            sel.appendChild(opt);
-        });
-
+        kws.forEach(kw => { const o = document.createElement('option'); o.value = o.textContent = kw; sel.appendChild(o); });
         applyFilter();
-    } catch (e) {
-        setMsg('❌ ' + e.message);
-    }
+    } catch(e) { setMsg('❌ ' + e.message); }
 }
 
-// ── 篩選 ────────────────────────────────────────────────
 function applyFilter() {
-    const any        = document.getElementById('f_any').value.trim().toLowerCase();
-    const keyword    = document.getElementById('f_keyword').value;
-    const type       = document.getElementById('f_type').value;
-    const org        = document.getElementById('f_org').value.trim().toLowerCase();
-    const nature     = document.getElementById('f_nature').value;
-    const caseno     = document.getElementById('f_caseno').value.trim().toLowerCase();
-    const dateFrom   = document.getElementById('f_date_from').value.trim();
-    const dateTo     = document.getElementById('f_date_to').value.trim();
-    const budgetMin  = parseFloat(document.getElementById('f_budget_min').value) || null;
-    const budgetMax  = parseFloat(document.getElementById('f_budget_max').value) || null;
+    const any      = document.getElementById('f_any').value.trim().toLowerCase();
+    const keyword  = document.getElementById('f_keyword').value;
+    const type     = document.getElementById('f_type').value;
+    const org      = document.getElementById('f_org').value.trim().toLowerCase();
+    const nature   = document.getElementById('f_nature').value;
+    const caseno   = document.getElementById('f_caseno').value.trim().toLowerCase();
+    const df       = document.getElementById('f_date_from').value.trim();
+    const dt       = document.getElementById('f_date_to').value.trim();
+    const bMin     = parseFloat(document.getElementById('f_budget_min').value) || null;
+    const bMax     = parseFloat(document.getElementById('f_budget_max').value) || null;
+    const contact  = document.getElementById('f_contact').value.trim().toLowerCase();
+    const award    = document.getElementById('f_award').value;
 
     filtered = allData.filter(row => {
         if (keyword && row['搜尋關鍵字'] !== keyword) return false;
-        if (type && row['招標類型'] !== type) return false;
-        if (nature && row['採購性質'] !== nature) return false;
-        if (org && !row['機關名稱'].toLowerCase().includes(org)) return false;
-        if (caseno && !row['標案案號'].toLowerCase().includes(caseno)) return false;
-        if (dateFrom && row['公告日期'] < dateFrom) return false;
-        if (dateTo && row['公告日期'] > dateTo) return false;
-
+        if (type    && row['招標類型'] !== type) return false;
+        if (nature  && row['採購性質'] !== nature) return false;
+        if (award   && row['決標方式'] !== award) return false;
+        if (org     && !row['機關名稱'].toLowerCase().includes(org)) return false;
+        if (caseno  && !row['標案案號'].toLowerCase().includes(caseno)) return false;
+        if (df      && row['公告日期'] < df) return false;
+        if (dt      && row['公告日期'] > dt) return false;
+        if (contact && !(
+            (row['聯絡人']||'').toLowerCase().includes(contact) ||
+            (row['機關地址']||'').toLowerCase().includes(contact)
+        )) return false;
         const budget = parseBudget(row['預算金額']);
-        if (budgetMin !== null && budget < budgetMin) return false;
-        if (budgetMax !== null && budget > budgetMax) return false;
-
+        if (bMin !== null && budget < bMin) return false;
+        if (bMax !== null && budget > bMax) return false;
         if (any) {
-            const all = Object.values(row).join(' ').toLowerCase();
-            if (!all.includes(any)) return false;
+            if (!Object.values(row).join(' ').toLowerCase().includes(any)) return false;
         }
         return true;
     });
-
     document.getElementById('resultCount').textContent = `共 ${filtered.length} 筆（全庫 ${allData.length} 筆）`;
-    currentPage = 1;
-    doSort();
-    renderPage();
+    currentPage = 1; doSort(); renderPage();
 }
 
 function resetFilter() {
-    ['f_any','f_org','f_caseno','f_date_from','f_date_to','f_budget_min','f_budget_max'].forEach(id => document.getElementById(id).value = '');
-    ['f_keyword','f_type','f_nature'].forEach(id => document.getElementById(id).value = '');
+    ['f_any','f_org','f_caseno','f_date_from','f_date_to','f_budget_min','f_budget_max','f_contact'].forEach(id => document.getElementById(id).value='');
+    ['f_keyword','f_type','f_nature','f_award'].forEach(id => document.getElementById(id).value='');
     applyFilter();
 }
 
-// ── 排序 ────────────────────────────────────────────────
 function sortBy(col, th) {
-    if (sortCol === col) {
-        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-        sortCol = col; sortDir = 'asc';
-    }
-    // 更新表頭樣式
+    sortDir = (sortCol === col && sortDir === 'asc') ? 'desc' : 'asc';
+    sortCol = col;
     document.querySelectorAll('th').forEach(t => t.classList.remove('sort-asc','sort-desc'));
     if (th) th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
-    doSort();
-    currentPage = 1;
-    renderPage();
+    doSort(); currentPage = 1; renderPage();
 }
-
 function doSort() {
-    filtered.sort((a, b) => {
-        let va = a[sortCol] || '', vb = b[sortCol] || '';
-        if (sortCol === '預算金額') { va = parseBudget(va); vb = parseBudget(vb); }
-        if (va < vb) return sortDir === 'asc' ? -1 : 1;
-        if (va > vb) return sortDir === 'asc' ? 1 : -1;
-        return 0;
+    filtered.sort((a,b) => {
+        let va = a[sortCol]||'', vb = b[sortCol]||'';
+        if (sortCol==='預算金額') { va=parseBudget(va); vb=parseBudget(vb); }
+        return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1);
     });
 }
+function parseBudget(s) { return parseFloat((s||'').replace(/,/g,''))||0; }
 
-function parseBudget(str) {
-    return parseFloat((str || '').replace(/,/g, '')) || 0;
-}
-
-// ── 渲染表格 ─────────────────────────────────────────────
-const TYPE_BADGE = {
-    '招標公告': 'badge-blue',
-    '公開徵求': 'badge-green',
-    '公開閱覽': 'badge-orange',
-    '政府採購預告': 'badge-purple'
-};
-const NATURE_BADGE = { '財物類': 'badge-blue', '工程類': 'badge-orange', '勞務類': 'badge-green' };
+const TYPE_BADGE   = {'招標公告':'badge-blue','公開徵求':'badge-green','公開閱覽':'badge-orange','政府採購預告':'badge-purple'};
+const NATURE_BADGE = {'財物類':'badge-blue','工程類':'badge-orange','勞務類':'badge-green'};
 
 function renderPage() {
     const tbody = document.getElementById('tableBody');
-    if (filtered.length === 0) { setMsg('查無符合條件的資料。'); renderPagination(); return; }
+    if (!filtered.length) { setMsg('查無符合條件的資料。'); renderPagination(); return; }
+    const start = (currentPage-1)*PAGE_SIZE;
+    const rows  = filtered.slice(start, start+PAGE_SIZE);
 
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const pageData = filtered.slice(start, start + PAGE_SIZE);
+    tbody.innerHTML = rows.map((row, idx) => {
+        const globalIdx = start + idx;
+        const hasDetail = row['機關地址'] || row['聯絡人'] || row['電子郵件信箱'];
+        const status    = row['詳細資料狀態'] || '';
+        const statusDot = hasDetail ? '🟢' : (status.includes('舊版')||status.includes('⏭️') ? '⚫' : '⚪');
 
-    tbody.innerHTML = pageData.map(row => `
-        <tr>
+        // 詳細面板內容
+        const detailHtml = hasDetail ? `
+            <div class="detail-grid">
+                <div class="detail-field"><span class="detail-label">機關地址</span><span class="detail-value">${esc(row['機關地址'])}</span></div>
+                <div class="detail-field"><span class="detail-label">聯絡人</span><span class="detail-value">${esc(row['聯絡人'])}</span></div>
+                <div class="detail-field"><span class="detail-label">聯絡電話</span><span class="detail-value">${esc(row['聯絡電話'])}</span></div>
+                <div class="detail-field"><span class="detail-label">電子郵件信箱</span><span class="detail-value">${row['電子郵件信箱'] ? `<a href="mailto:${esc(row['電子郵件信箱'])}">${esc(row['電子郵件信箱'])}</a>` : ''}</span></div>
+                <div class="detail-field"><span class="detail-label">決標方式</span><span class="detail-value">${esc(row['決標方式'])}</span></div>
+            </div>
+            ${row['附加說明'] ? `<div class="detail-note">${esc(row['附加說明']).replace(/ \| /g,'\n')}</div>` : ''}
+        ` : `<span class="detail-status-pending">${status || '⚪ 詳細資料尚未擷取（排程執行中逐批補充）'}</span>`;
+
+        return `
+        <tr class="main-row" id="mr${globalIdx}" onclick="toggleDetail(${globalIdx})">
+            <td style="text-align:center"><span class="expand-icon">▶</span></td>
             <td class="nowrap">${row['搜尋關鍵字'] ? `<span class="badge badge-gray">${esc(row['搜尋關鍵字'])}</span>` : ''}</td>
-            <td class="nowrap"><span class="badge ${TYPE_BADGE[row['招標類型']] || 'badge-gray'}">${esc(row['招標類型'])}</span></td>
+            <td class="nowrap"><span class="badge ${TYPE_BADGE[row['招標類型']]||'badge-gray'}">${esc(row['招標類型'])}</span></td>
             <td class="nowrap">${esc(row['公告日期'])}</td>
             <td>${esc(row['機關名稱'])}</td>
             <td class="nowrap">${esc(row['標案案號'])}</td>
             <td>${esc(row['標案名稱'])}</td>
-            <td class="nowrap"><span class="badge ${NATURE_BADGE[row['採購性質']] || 'badge-gray'}">${esc(row['採購性質'])}</span></td>
+            <td class="nowrap"><span class="badge ${NATURE_BADGE[row['採購性質']]||'badge-gray'}">${esc(row['採購性質'])}</span></td>
             <td class="nowrap">${esc(row['截止投標'])}</td>
-            <td class="nowrap" style="text-align:right;">${esc(row['預算金額'])}</td>
-            <td>${row['連結'] ? `<a href="${row['連結']}" target="_blank" class="view-btn">🔗 檢視</a>` : ''}</td>
+            <td class="nowrap" style="text-align:right">${esc(row['預算金額'])}</td>
+            <td>${row['連結'] ? `<a href="${row['連結']}" target="_blank" class="view-btn" onclick="event.stopPropagation()">🔗 檢視</a>` : ''}</td>
         </tr>
-    `).join('');
+        <tr class="detail-row" id="dr${globalIdx}">
+            <td colspan="11"><div class="detail-panel">${detailHtml}</div></td>
+        </tr>`;
+    }).join('');
 
     renderPagination();
 }
 
-function esc(s) {
-    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function toggleDetail(idx) {
+    const mr = document.getElementById('mr'+idx);
+    const dr = document.getElementById('dr'+idx);
+    if (!mr||!dr) return;
+    const isOpen = dr.classList.contains('open');
+    dr.classList.toggle('open', !isOpen);
+    mr.classList.toggle('expanded', !isOpen);
 }
 
-function setMsg(msg) {
-    document.getElementById('tableBody').innerHTML = `<tr><td colspan="10" class="msg">${msg}</td></tr>`;
-    document.getElementById('pagination').innerHTML = '';
-}
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function setMsg(msg) { document.getElementById('tableBody').innerHTML=`<tr><td colspan="11" class="msg">${msg}</td></tr>`; document.getElementById('pagination').innerHTML=''; }
 
-// ── 分頁 ─────────────────────────────────────────────────
 function renderPagination() {
-    const total = Math.ceil(filtered.length / PAGE_SIZE);
+    const total = Math.ceil(filtered.length/PAGE_SIZE);
     const pg = document.getElementById('pagination');
-    if (total <= 1) { pg.innerHTML = ''; return; }
-
+    if (total<=1) { pg.innerHTML=''; return; }
     let html = `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹ 上一頁</button>`;
-    const range = pageRange(currentPage, total);
-    range.forEach(p => {
-        if (p === '...') html += `<span class="page-info">…</span>`;
-        else html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    pageRange(currentPage,total).forEach(p => {
+        if (p==='...') html+=`<span class="page-info">…</span>`;
+        else html+=`<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
     });
     html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>下一頁 ›</button>`;
     html += `<span class="page-info">第 ${currentPage} / ${total} 頁</span>`;
     pg.innerHTML = html;
 }
-
-function goPage(p) {
-    const total = Math.ceil(filtered.length / PAGE_SIZE);
-    if (p < 1 || p > total) return;
-    currentPage = p;
-    renderPage();
-    window.scrollTo(0, 0);
-}
-
-function pageRange(cur, total) {
-    const pages = [];
-    for (let i = 1; i <= total; i++) {
-        if (i === 1 || i === total || (i >= cur - 2 && i <= cur + 2)) pages.push(i);
-        else if (pages[pages.length-1] !== '...') pages.push('...');
+function goPage(p) { const t=Math.ceil(filtered.length/PAGE_SIZE); if(p<1||p>t) return; currentPage=p; renderPage(); window.scrollTo(0,0); }
+function pageRange(cur,total) {
+    const ps=[];
+    for(let i=1;i<=total;i++) {
+        if(i===1||i===total||(i>=cur-2&&i<=cur+2)) ps.push(i);
+        else if(ps[ps.length-1]!=='...') ps.push('...');
     }
-    return pages;
+    return ps;
 }
 
-// ── 即時篩選（Enter 觸發）───────────────────────────────
-document.querySelectorAll('.filter-item input, .filter-item select').forEach(el => {
-    el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilter(); });
-    if (el.tagName === 'SELECT') el.addEventListener('change', applyFilter);
+document.querySelectorAll('.filter-item input,.filter-item select').forEach(el => {
+    el.addEventListener('keydown', e => { if(e.key==='Enter') applyFilter(); });
+    if (el.tagName==='SELECT') el.addEventListener('change', applyFilter);
 });
+document.querySelectorAll('th[data-col]').forEach(th => { if(th.dataset.col===sortCol) th.classList.add('sort-desc'); });
 
-// ── 初始排序表頭標記 ─────────────────────────────────────
-document.querySelectorAll('th[data-col]').forEach(th => {
-    if (th.dataset.col === sortCol) th.classList.add('sort-desc');
-});
-
-// 啟動載入
 loadData();
 </script>
 </body>
