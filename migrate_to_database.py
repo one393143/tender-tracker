@@ -49,25 +49,24 @@ def write_database(records_dict):
     print(f"  💾 已寫入 {DATABASE_FILE}，共 {len(all_rows)} 筆")
 
 
-def migrate_task_csv(filepath, existing_records):
+def migrate_task_csv(filepath, existing_records, keyword_hint=''):
     """
     從 task_*.csv 讀取資料（欄位：招標類型,公告日期,機關名稱,標案案號,標案名稱,採購性質,截止投標,預算金額,連結）
     並合併進 existing_records。
+    keyword_hint: 由外部傳入此 task_id 對應的搜尋關鍵字。
     回傳 (新增筆數, 略過筆數)
     """
     added = 0
     skipped = 0
-    # 從檔名猜測關鍵字（無法得知，留空）
-    keyword_hint = ''
 
     try:
         with open(filepath, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
-            headers = reader.fieldnames or []
             for row in reader:
                 # task_*.csv 欄位：招標類型, 公告日期, 機關名稱, 標案案號, 標案名稱, 採購性質, 截止投標, 預算金額, 連結
+                # 優先用 CSV 內既有的 搜尋關鍵字 欄（若已是新格式），否則用傳入的 keyword_hint
                 record = {
-                    '搜尋關鍵字': row.get('搜尋關鍵字', keyword_hint).strip(),
+                    '搜尋關鍵字': row.get('搜尋關鍵字', '').strip() or keyword_hint,
                     '招標類型':   row.get('招標類型', '').strip(),
                     '公告日期':   row.get('公告日期', '').strip(),
                     '機關名稱':   row.get('機關名稱', '').strip(),
@@ -131,22 +130,47 @@ def migrate_results_csv(filepath, existing_records):
 
 
 if __name__ == '__main__':
+    import json
+
     print("🚀 開始資料遷移：將現有 CSV 歷史資料匯入永久資料庫...\n")
+
+    # 讀取 tasks.json，建立 task_id -> keyword 的對應表
+    task_keyword_map = {}
+    tasks_file = 'data/tasks.json'
+    if os.path.exists(tasks_file):
+        try:
+            with open(tasks_file, 'r', encoding='utf-8') as f:
+                tasks = json.load(f)
+            for t in tasks:
+                tid = str(t.get('id', ''))
+                kw = t.get('keyword', '')
+                if tid:
+                    task_keyword_map[tid] = kw
+            print(f"  📋 從 tasks.json 讀取到 {len(task_keyword_map)} 個任務關鍵字對應")
+        except Exception as e:
+            print(f"  ⚠️  讀取 tasks.json 失敗：{e}")
+    else:
+        print("  ℹ️  找不到 tasks.json，搜尋關鍵字欄將留空")
 
     existing_records = load_existing_database()
 
     total_added = 0
     total_skipped = 0
 
-    # 處理所有 task_*.csv
+    # 處理所有 task_*.csv，並自動帶入對應的 keyword
     task_files = sorted(glob.glob('data/task_*.csv'))
     if task_files:
         print(f"\n📁 找到 {len(task_files)} 個任務 CSV 檔案，開始合併...")
         for filepath in task_files:
-            added, skipped = migrate_task_csv(filepath, existing_records)
+            # 從檔名取出 task_id，例如 task_1776236756665.csv -> 1776236756665
+            basename = os.path.basename(filepath)
+            task_id = basename.replace('task_', '').replace('.csv', '')
+            keyword_hint = task_keyword_map.get(task_id, '')
+            added, skipped = migrate_task_csv(filepath, existing_records, keyword_hint=keyword_hint)
             total_added += added
             total_skipped += skipped
-            print(f"  ✅ {os.path.basename(filepath)}: 新增 {added} 筆，略過重複 {skipped} 筆")
+            kw_display = f" (關鍵字: {keyword_hint})" if keyword_hint else ''
+            print(f"  ✅ {basename}{kw_display}: 新增 {added} 筆，略過重複 {skipped} 筆")
     else:
         print("  ℹ️  沒有找到 task_*.csv 檔案")
 
