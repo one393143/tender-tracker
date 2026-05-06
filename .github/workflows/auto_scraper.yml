@@ -34,4 +34,5 @@ jobs:
           git config --local user.name "GitHub Action"
           git add data/
           git commit -m "Auto Update: 每日排程任務 + 資料庫累積更新" || echo "無變動，跳過 commit"
+          git pull --rebase
           git push
