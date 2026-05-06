@@ -173,12 +173,10 @@
 <body>
 <div class="container">
     <h1>🏛️ 標案自動查詢控制台</h1>
-    <p class="subtitle">系統會每 12 小時自動執行爬蟲，並將結果累積至永久資料庫</p>
 
     <!-- 密碼區 -->
     <div class="box">
         <h3>🔑 請輸入存取密碼</h3>
-        <p class="hint" style="margin-top:0; margin-bottom:12px;">此密碼即您的 GitHub Personal Access Token，僅存於瀏覽器本地，不會上傳。</p>
         <label for="token">密碼</label>
         <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxx" oninput="onTokenInput()">
     </div>
@@ -188,6 +186,11 @@
         <!-- 前往任務管理中心（醒目CTA） -->
         <a id="gotoBtn" href="scheduled.html" class="btn-goto disabled" onclick="return checkTokenBeforeGo(event)">
             ⚙️ 前往任務管理中心
+        </a>
+
+        <!-- 查看完整資料庫 -->
+        <a href="database.html" class="btn-goto" style="background: linear-gradient(135deg, #28a745, #1a7a30); box-shadow: 0 4px 14px rgba(40,167,69,0.35); margin-bottom: 12px;">
+            🗄️ 查看完整資料庫
         </a>
 
         <!-- 測試查詢展開按鈕 -->
