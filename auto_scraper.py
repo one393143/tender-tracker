@@ -51,7 +51,7 @@ TYPE_MAP = {
 }
 
 # --- 3. 寄信功能函數 (已更新為支援多收件者) ---
-def send_notification(task_count, total_records, details_text):
+def send_summary_notification(task_count, total_records, details_text):
     sender_email = os.environ.get('EMAIL_USER')
     sender_password = os.environ.get('EMAIL_PASS')
     receiver_emails_raw = os.environ.get('EMAIL_RECEIVER')
@@ -62,12 +62,13 @@ def send_notification(task_count, total_records, details_text):
 
     # 將逗號隔開的字串轉為清單，並去除空格
     receiver_list = [email.strip() for email in receiver_emails_raw.split(',')]
+    primary_receiver = receiver_list[0]  # 總結信只寄給第一個人
 
-    print(f"📧 準備寄送系統通知信至: {', '.join(receiver_list)}")
+    print(f"📧 準備寄送系統總結通知信至: {primary_receiver}")
     
     msg = MIMEMultipart()
     msg['From'] = sender_email
-    msg['To'] = receiver_emails_raw # 在郵件軟體中顯示所有收件者
+    msg['To'] = primary_receiver
     msg['Subject'] = f"🔔 政府採購網自動查詢完成 (發現 {total_records} 筆)"
 
     # 取得 Repo 資訊來動態生成網址 (由 GitHub Actions 自動提供)
@@ -90,15 +91,63 @@ def send_notification(task_count, total_records, details_text):
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(sender_email, sender_password)
-        # 使用 to_addrs 參數傳入清單，確保每個人都收到
-        server.send_message(msg, to_addrs=receiver_list)
+        server.send_message(msg, to_addrs=[primary_receiver])
         server.quit()
-        print("✅ 通知信寄送成功！")
+        print("✅ 總結通知信寄送成功！")
     except Exception as e:
         print(f"❌ 寄信失敗：{e}")
 
 
-def merge_into_database(new_rows_with_keyword):
+def send_new_tender_alert(new_tenders):
+    if not new_tenders:
+        return
+        
+    sender_email = os.environ.get('EMAIL_USER')
+    sender_password = os.environ.get('EMAIL_PASS')
+    receiver_emails_raw = os.environ.get('EMAIL_RECEIVER')
+
+    if not sender_email or not sender_password or not receiver_emails_raw:
+        return
+
+    receiver_list = [email.strip() for email in receiver_emails_raw.split(',')]
+
+    print(f"📧 準備寄送【新標案通知信】至: {', '.join(receiver_list)}")
+    
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_emails_raw
+    msg['Subject'] = f"🚀 發現 {len(new_tenders)} 筆全新標案！"
+
+    repo_full_name = os.environ.get('GITHUB_REPOSITORY', 'your-username/tender-tracker')
+    owner = repo_full_name.split('/')[0]
+    repo_name = repo_full_name.split('/')[1]
+    dashboard_url = f"https://{owner}.github.io/{repo_name}/scheduled.html"
+
+    body = f"系統在本次排程中，發現了 {len(new_tenders)} 筆過去從未出現過的全新標案案號：\n\n"
+    
+    for idx, t in enumerate(new_tenders, 1):
+        body += f"{idx}. 【{t.get('機關名稱', '未知')}】 {t.get('標案名稱', '未知')}\n"
+        body += f"   - 案號：{t.get('標案案號', '')}\n"
+        body += f"   - 日期：{t.get('公告日期', '')}\n"
+        body += f"   - 預算：{t.get('預算金額', '')}\n"
+        body += f"   - 連結：{t.get('連結', '')}\n\n"
+        
+    body += f"👉 請至您的管理中心查看詳細資料：\n{dashboard_url}"
+    
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg, to_addrs=receiver_list)
+        server.quit()
+        print("✅ 新標案通知信寄送成功！")
+    except Exception as e:
+        print(f"❌ 寄信失敗：{e}")
+
+
+def merge_into_database(new_rows_with_keyword, historical_case_nos, newly_discovered_tenders):
     """
     將新抓到的資料合併進 database.csv，以 DB_UNIQUE_KEYS 作為唯一鍵去重。
     new_rows_with_keyword: list of dict，每個 dict 的 key 對應 DB_HEADERS
@@ -123,6 +172,12 @@ def merge_into_database(new_rows_with_keyword):
         if unique_key not in existing_records:
             existing_records[unique_key] = row
             added_count += 1
+            
+            # 檢查是否為全新案號
+            case_no = row.get('標案案號', '').strip()
+            if case_no and case_no not in historical_case_nos:
+                newly_discovered_tenders.append(row)
+                historical_case_nos.add(case_no) # 避免同一次排程中重複加入
         else:
             skipped_count += 1
 
@@ -145,7 +200,7 @@ def merge_into_database(new_rows_with_keyword):
     return added_count, skipped_count
 
 
-def scrape_task(task):
+def scrape_task(task, historical_case_nos, newly_discovered_tenders):
     task_id = str(task.get('id', 'default'))
     keyword = task.get('keyword', '')
     types = task.get('types', ["招標公告"])
@@ -232,7 +287,7 @@ def scrape_task(task):
             '連結':       row[8],
         })
 
-    added, skipped = merge_into_database(rows_for_db)
+    added, skipped = merge_into_database(rows_for_db, historical_case_nos, newly_discovered_tenders)
     print(f"  🗄️ 資料庫更新: 新增 {added} 筆，略過重複 {skipped} 筆\n")
 
     print(f"✅ 任務 [{keyword}] 完成，共抓到 {len(all_data)} 筆\n")
@@ -439,13 +494,23 @@ if __name__ == "__main__":
     
     active_task_ids = [str(task.get('id')) for task in tasks]
     
+    # 載入歷史資料庫中的所有標案案號，用來判斷是否為「全新標案」
+    historical_case_nos = set()
+    if os.path.exists(DATABASE_FILE):
+        with open(DATABASE_FILE, 'r', encoding='utf-8-sig') as f:
+            for row in csv.DictReader(f):
+                cno = row.get('標案案號', '').strip()
+                if cno:
+                    historical_case_nos.add(cno)
+    
     # --- 用來記錄統計資訊的變數 ---
     total_records_found = 0
     task_details_text = ""
+    newly_discovered_tenders = []
 
     # 執行所有有效任務的爬蟲
     for task in tasks:
-        records_count = scrape_task(task)
+        records_count = scrape_task(task, historical_case_nos, newly_discovered_tenders)
         total_records_found += records_count
         task_details_text += f"- [{task.get('keyword', '未知')}]: 找到 {records_count} 筆\n"
 
@@ -473,6 +538,8 @@ if __name__ == "__main__":
     enrich_database_details(max_per_run=DETAIL_MAX_PER_RUN)
 
     # --- 執行完畢後，寄送通知信 ---
-    send_notification(len(tasks), total_records_found, task_details_text)
+    send_summary_notification(len(tasks), total_records_found, task_details_text)
+    if newly_discovered_tenders:
+        send_new_tender_alert(newly_discovered_tenders)
 
     print("✨ 自動排程、清理與通知作業全數完成！")
