@@ -3,92 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>完整標案資料庫</title>
+    <title>資料庫 — 耀迅國際政府標案工具</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; background: #f0f2f5; color: #222; }
-        .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-        .header h1 { font-size: 20px; font-weight: bold; }
-        .back-btn { color: #aac4ff; text-decoration: none; font-size: 14px; padding: 6px 14px; border: 1px solid #aac4ff; border-radius: 6px; transition: background 0.2s; }
-        .back-btn:hover { background: rgba(170,196,255,0.15); }
-        .main { max-width: 1400px; margin: 24px auto; padding: 0 16px 40px; }
-        .filter-box { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .filter-box h3 { font-size: 15px; color: #444; margin-bottom: 16px; }
+        body { font-family: 'Inter', Arial, sans-serif; background: #f4f6f8; color: #1a1a1a; }
+
+        .site-header { background: #fff; border-bottom: 1px solid #e0e0e0; padding: 0 32px; display: flex; align-items: center; height: 64px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .logo-wrap { display: flex; align-items: center; gap: 14px; text-decoration: none; }
+        .logo-wrap img { height: 38px; object-fit: contain; }
+        .header-divider { width: 1px; height: 28px; background: #d0d0d0; margin: 0 16px; }
+        .header-title { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+        .header-nav { margin-left: auto; display: flex; gap: 4px; }
+        .nav-link { padding: 7px 14px; font-size: 13px; font-weight: 500; color: #555; text-decoration: none; border-radius: 5px; transition: background 0.15s; }
+        .nav-link:hover { background: #f0f2f5; color: #1a1a1a; }
+        .nav-link.active { background: #5a9e14; color: #fff; }
+
+        .main { max-width: 1440px; margin: 28px auto; padding: 0 20px 60px; }
+        .page-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+        .page-subtitle { font-size: 13px; color: #888; margin-bottom: 22px; }
+
+        .filter-box { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border: 1px solid #e4e4e4; }
+        .filter-box-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #888; margin-bottom: 14px; }
         .filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
-        .filter-item label { display: block; font-size: 12px; color: #777; font-weight: bold; margin-bottom: 5px; }
-        .filter-item input, .filter-item select { width: 100%; padding: 8px 10px; font-size: 13px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa; transition: border-color 0.2s; }
-        .filter-item input:focus, .filter-item select:focus { outline: none; border-color: #007bff; background: #fff; }
+        .filter-item label { display: block; font-size: 11px; color: #777; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .filter-item input, .filter-item select { width: 100%; padding: 8px 10px; font-size: 13px; font-family: inherit; border: 1.5px solid #d0d0d0; border-radius: 6px; background: #fafafa; transition: border-color 0.2s; }
+        .filter-item input:focus, .filter-item select:focus { outline: none; border-color: #5a9e14; background: #fff; }
         .filter-actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
-        .btn { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.2s; }
-        .btn-primary { background: #007bff; color: white; }
-        .btn-primary:hover { background: #0056b3; }
+        .btn { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: background 0.2s; }
+        .btn-primary { background: #5a9e14; color: #fff; }
+        .btn-primary:hover { background: #4a8610; }
         .btn-reset { background: #f0f2f5; color: #555; border: 1px solid #ccc; }
         .btn-reset:hover { background: #e2e6ea; }
         .result-count { font-size: 13px; color: #888; margin-left: auto; }
-        .table-box { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+
+        .table-box { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e4e4e4; }
         .table-scroll { overflow-x: auto; }
         table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 900px; }
-        thead tr { background: #1a1a2e; color: white; }
-        th { padding: 12px 14px; text-align: left; white-space: nowrap; cursor: pointer; user-select: none; }
-        th:hover { background: #2a2a4e; }
-        th .sort-icon { margin-left: 4px; font-style: normal; font-size: 11px; opacity: 0.6; }
+        thead tr { background: #1a1a1a; color: #fff; }
+        th { padding: 11px 14px; text-align: left; white-space: nowrap; cursor: pointer; user-select: none; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        th:hover { background: #2f2f2f; }
+        th .sort-icon { margin-left: 4px; font-style: normal; font-size: 11px; opacity: 0.5; }
         th.sort-asc .sort-icon::after { content: ' ▲'; }
         th.sort-desc .sort-icon::after { content: ' ▼'; }
         th:not(.sort-asc):not(.sort-desc) .sort-icon::after { content: ' ⇅'; }
         tbody tr.main-row { border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.1s; }
-        tbody tr.main-row:hover { background: #f0f7ff; }
-        tbody tr.detail-row { display: none; background: #f8faff; border-bottom: 2px solid #dce8ff; }
+        tbody tr.main-row:hover { background: #f5f9f0; }
+        tbody tr.detail-row { display: none; background: #f8fbf5; border-bottom: 2px solid #d4e8bc; }
         tbody tr.detail-row.open { display: table-row; }
         td { padding: 10px 14px; vertical-align: middle; }
         td.nowrap { white-space: nowrap; }
-        .expand-icon { display: inline-block; width: 18px; font-size: 12px; color: #999; transition: transform 0.2s; }
-        tr.main-row.expanded .expand-icon { transform: rotate(90deg); color: #007bff; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; white-space: nowrap; }
+        .expand-icon { display: inline-block; width: 18px; font-size: 11px; color: #bbb; transition: transform 0.2s; }
+        tr.main-row.expanded .expand-icon { transform: rotate(90deg); color: #5a9e14; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
         .badge-blue { background: #dbeafe; color: #1d4ed8; }
         .badge-green { background: #dcfce7; color: #15803d; }
         .badge-orange { background: #ffedd5; color: #c2410c; }
         .badge-purple { background: #ede9fe; color: #6d28d9; }
         .badge-gray { background: #f3f4f6; color: #6b7280; }
-        .view-btn { display: inline-block; padding: 4px 10px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: bold; white-space: nowrap; }
-        .view-btn:hover { background: #218838; }
-        /* 詳細資訊展開區 */
+        .view-btn { display: inline-block; padding: 4px 10px; background: #5a9e14; color: #fff; text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .view-btn:hover { background: #4a8610; }
+
         .detail-panel { padding: 14px 20px 14px 38px; }
         .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 24px; }
         .detail-field { display: flex; flex-direction: column; }
-        .detail-label { font-size: 11px; color: #888; font-weight: bold; margin-bottom: 3px; }
+        .detail-label { font-size: 11px; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
         .detail-value { font-size: 13px; color: #333; }
-        .detail-note { font-size: 12px; color: #555; line-height: 1.6; background: #eef2ff; border-left: 3px solid #4f87f6; border-radius: 0 4px 4px 0; padding: 8px 12px; margin-top: 10px; white-space: pre-wrap; word-break: break-all; }
+        .detail-note { font-size: 12px; color: #555; line-height: 1.6; background: #f0f6e8; border-left: 3px solid #5a9e14; border-radius: 0 4px 4px 0; padding: 8px 12px; margin-top: 10px; white-space: pre-wrap; word-break: break-all; }
         .detail-status-pending { font-size: 11px; color: #aaa; font-style: italic; }
-        .msg { text-align: center; padding: 60px 20px; color: #999; font-size: 15px; }
+        .msg { text-align: center; padding: 60px 20px; color: #999; font-size: 14px; }
+
         .pagination { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 16px; border-top: 1px solid #eee; flex-wrap: wrap; }
-        .page-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; font-size: 13px; background: #fff; color: #333; transition: background 0.15s; }
+        .page-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; font-size: 13px; font-family: inherit; background: #fff; color: #333; transition: background 0.15s; }
         .page-btn:hover { background: #e9ecef; }
-        .page-btn.active { background: #007bff; color: white; border-color: #007bff; }
+        .page-btn.active { background: #5a9e14; color: #fff; border-color: #5a9e14; }
         .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .page-info { font-size: 13px; color: #888; }
     </style>
 </head>
 <body>
-<div class="header">
-    <h1>🗄️ 完整標案資料庫</h1>
-    <a href="index.html" class="back-btn">← 返回控制台</a>
-</div>
+
+<header class="site-header">
+    <a href="index.html" class="logo-wrap">
+        <img src="img/eff_logo_1223.jpg" alt="耀迅國際 EFF">
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-title">政府標案工具</span>
+    <nav class="header-nav">
+        <a href="index.html" class="nav-link">首頁</a>
+        <a href="scheduled.html" class="nav-link">設定</a>
+        <a href="database.html" class="nav-link active">資料庫</a>
+    </nav>
+</header>
+
 <div class="main">
-    <!-- 篩選區 -->
+    <h1 class="page-title">資料庫</h1>
+    <p class="page-subtitle">完整標案資料庫，支援多條件篩選與排序。</p>
+
     <div class="filter-box">
-        <h3>🔍 篩選 / 搜尋</h3>
+        <div class="filter-box-title">篩選 / 搜尋</div>
         <div class="filter-grid">
-            <div class="filter-item"><label>搜尋關鍵字（任意欄）</label><input type="text" id="f_any" placeholder="輸入任意文字..."></div>
-            <div class="filter-item"><label>搜尋關鍵字（任務分類）</label><select id="f_keyword"><option value="">全部</option></select></div>
+            <div class="filter-item"><label>搜尋（任意欄）</label><input type="text" id="f_any" placeholder="輸入任意文字..."></div>
+            <div class="filter-item"><label>任務分類</label><select id="f_keyword"><option value="">全部</option></select></div>
             <div class="filter-item"><label>招標類型</label><select id="f_type"><option value="">全部</option><option>招標公告</option><option>公開徵求</option><option>公開閱覽</option><option>政府採購預告</option></select></div>
             <div class="filter-item"><label>機關名稱</label><input type="text" id="f_org" placeholder="輸入機關名稱..."></div>
             <div class="filter-item"><label>採購性質</label><select id="f_nature"><option value="">全部</option><option>財物類</option><option>工程類</option><option>勞務類</option></select></div>
             <div class="filter-item"><label>標案案號</label><input type="text" id="f_caseno" placeholder="輸入案號..."></div>
-            <div class="filter-item"><label>公告日期（起）</label><input type="text" id="f_date_from" placeholder="例：115/04/01"></div>
-            <div class="filter-item"><label>公告日期（迄）</label><input type="text" id="f_date_to" placeholder="例：115/05/31"></div>
-            <div class="filter-item"><label>預算金額（最低，元）</label><input type="number" id="f_budget_min" placeholder="例：100000"></div>
-            <div class="filter-item"><label>預算金額（最高，元）</label><input type="number" id="f_budget_max" placeholder="例：5000000"></div>
-            <div class="filter-item"><label>聯絡人 / 機關地址</label><input type="text" id="f_contact" placeholder="輸入聯絡人或地址..."></div>
+            <div class="filter-item"><label>公告日期（起）</label><input type="text" id="f_date_from" placeholder="115/04/01"></div>
+            <div class="filter-item"><label>公告日期（迄）</label><input type="text" id="f_date_to" placeholder="115/05/31"></div>
+            <div class="filter-item"><label>預算金額（最低）</label><input type="number" id="f_budget_min" placeholder="100000"></div>
+            <div class="filter-item"><label>預算金額（最高）</label><input type="number" id="f_budget_max" placeholder="5000000"></div>
+            <div class="filter-item"><label>聯絡人 / 地址</label><input type="text" id="f_contact" placeholder="輸入聯絡人或地址..."></div>
             <div class="filter-item"><label>決標方式</label><select id="f_award"><option value="">全部</option><option>最低標</option><option>最有利標</option><option>固定價格</option></select></div>
         </div>
         <div class="filter-actions">
@@ -97,7 +123,7 @@
             <span class="result-count" id="resultCount"></span>
         </div>
     </div>
-    <!-- 表格 -->
+
     <div class="table-box">
         <div class="table-scroll">
             <table id="dataTable">
@@ -114,7 +140,7 @@
                     <th data-col="預算金額" onclick="sortBy('預算金額',this)">預算金額<i class="sort-icon"></i></th>
                     <th>連結</th>
                 </tr></thead>
-                <tbody id="tableBody"><tr><td colspan="11" class="msg">⏳ 資料載入中...</td></tr></tbody>
+                <tbody id="tableBody"><tr><td colspan="11" class="msg">資料載入中...</td></tr></tbody>
             </table>
         </div>
         <div class="pagination" id="pagination"></div>
@@ -155,17 +181,14 @@ function splitRow(row) {
 }
 
 async function loadData() {
-    setMsg('⏳ 資料載入中，請稍候...');
+    setMsg('資料載入中，請稍候...');
     try {
         const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/data/database.csv?t=${Date.now()}`;
         let res = await fetch(rawUrl);
         if (!res.ok) {
             const token = localStorage.getItem('gh_token') || '';
             if (!token) throw new Error('資料載入失敗，請先在控制台輸入密碼後再試。');
-            res = await fetch(
-                `https://api.github.com/repos/${OWNER}/${REPO}/contents/data/database.csv?t=${Date.now()}`,
-                { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' } }
-            );
+            res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/data/database.csv?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' } });
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         allData = parseCSV(await res.text());
@@ -173,22 +196,22 @@ async function loadData() {
         const sel = document.getElementById('f_keyword');
         kws.forEach(kw => { const o = document.createElement('option'); o.value = o.textContent = kw; sel.appendChild(o); });
         applyFilter();
-    } catch(e) { setMsg('❌ ' + e.message); }
+    } catch(e) { setMsg(e.message); }
 }
 
 function applyFilter() {
-    const any      = document.getElementById('f_any').value.trim().toLowerCase();
-    const keyword  = document.getElementById('f_keyword').value;
-    const type     = document.getElementById('f_type').value;
-    const org      = document.getElementById('f_org').value.trim().toLowerCase();
-    const nature   = document.getElementById('f_nature').value;
-    const caseno   = document.getElementById('f_caseno').value.trim().toLowerCase();
-    const df       = document.getElementById('f_date_from').value.trim();
-    const dt       = document.getElementById('f_date_to').value.trim();
-    const bMin     = parseFloat(document.getElementById('f_budget_min').value) || null;
-    const bMax     = parseFloat(document.getElementById('f_budget_max').value) || null;
-    const contact  = document.getElementById('f_contact').value.trim().toLowerCase();
-    const award    = document.getElementById('f_award').value;
+    const any     = document.getElementById('f_any').value.trim().toLowerCase();
+    const keyword = document.getElementById('f_keyword').value;
+    const type    = document.getElementById('f_type').value;
+    const org     = document.getElementById('f_org').value.trim().toLowerCase();
+    const nature  = document.getElementById('f_nature').value;
+    const caseno  = document.getElementById('f_caseno').value.trim().toLowerCase();
+    const df      = document.getElementById('f_date_from').value.trim();
+    const dt      = document.getElementById('f_date_to').value.trim();
+    const bMin    = parseFloat(document.getElementById('f_budget_min').value) || null;
+    const bMax    = parseFloat(document.getElementById('f_budget_max').value) || null;
+    const contact = document.getElementById('f_contact').value.trim().toLowerCase();
+    const award   = document.getElementById('f_award').value;
 
     filtered = allData.filter(row => {
         if (keyword && row['搜尋關鍵字'] !== keyword) return false;
@@ -199,16 +222,11 @@ function applyFilter() {
         if (caseno  && !row['標案案號'].toLowerCase().includes(caseno)) return false;
         if (df      && row['公告日期'] < df) return false;
         if (dt      && row['公告日期'] > dt) return false;
-        if (contact && !(
-            (row['聯絡人']||'').toLowerCase().includes(contact) ||
-            (row['機關地址']||'').toLowerCase().includes(contact)
-        )) return false;
+        if (contact && !((row['聯絡人']||'').toLowerCase().includes(contact) || (row['機關地址']||'').toLowerCase().includes(contact))) return false;
         const budget = parseBudget(row['預算金額']);
         if (bMin !== null && budget < bMin) return false;
         if (bMax !== null && budget > bMax) return false;
-        if (any) {
-            if (!Object.values(row).join(' ').toLowerCase().includes(any)) return false;
-        }
+        if (any && !Object.values(row).join(' ').toLowerCase().includes(any)) return false;
         return true;
     });
     document.getElementById('resultCount').textContent = `共 ${filtered.length} 筆（全庫 ${allData.length} 筆）`;
@@ -250,19 +268,17 @@ function renderPage() {
         const globalIdx = start + idx;
         const hasDetail = row['機關地址'] || row['聯絡人'] || row['電子郵件信箱'];
         const status    = row['詳細資料狀態'] || '';
-        const statusDot = hasDetail ? '🟢' : (status.includes('舊版')||status.includes('⏭️') ? '⚫' : '⚪');
 
-        // 詳細面板內容
         const detailHtml = hasDetail ? `
             <div class="detail-grid">
                 <div class="detail-field"><span class="detail-label">機關地址</span><span class="detail-value">${esc(row['機關地址'])}</span></div>
                 <div class="detail-field"><span class="detail-label">聯絡人</span><span class="detail-value">${esc(row['聯絡人'])}</span></div>
                 <div class="detail-field"><span class="detail-label">聯絡電話</span><span class="detail-value">${esc(row['聯絡電話'])}</span></div>
-                <div class="detail-field"><span class="detail-label">電子郵件信箱</span><span class="detail-value">${row['電子郵件信箱'] ? `<a href="mailto:${esc(row['電子郵件信箱'])}">${esc(row['電子郵件信箱'])}</a>` : ''}</span></div>
+                <div class="detail-field"><span class="detail-label">電子郵件</span><span class="detail-value">${row['電子郵件信箱'] ? `<a href="mailto:${esc(row['電子郵件信箱'])}">${esc(row['電子郵件信箱'])}</a>` : ''}</span></div>
                 <div class="detail-field"><span class="detail-label">決標方式</span><span class="detail-value">${esc(row['決標方式'])}</span></div>
             </div>
             ${row['附加說明'] ? `<div class="detail-note">${esc(row['附加說明']).replace(/ \| /g,'\n')}</div>` : ''}
-        ` : `<span class="detail-status-pending">${status || '⚪ 詳細資料尚未擷取（排程執行中逐批補充）'}</span>`;
+        ` : `<span class="detail-status-pending">${status || '詳細資料尚未擷取（排程執行中逐批補充）'}</span>`;
 
         return `
         <tr class="main-row" id="mr${globalIdx}" onclick="toggleDetail(${globalIdx})">
@@ -276,7 +292,7 @@ function renderPage() {
             <td class="nowrap"><span class="badge ${NATURE_BADGE[row['採購性質']]||'badge-gray'}">${esc(row['採購性質'])}</span></td>
             <td class="nowrap">${esc(row['截止投標'])}</td>
             <td class="nowrap" style="text-align:right">${esc(row['預算金額'])}</td>
-            <td>${row['連結'] ? `<a href="${row['連結']}" target="_blank" class="view-btn" onclick="event.stopPropagation()">🔗 檢視</a>` : ''}</td>
+            <td>${row['連結'] ? `<a href="${row['連結']}" target="_blank" class="view-btn" onclick="event.stopPropagation()">檢視</a>` : ''}</td>
         </tr>
         <tr class="detail-row" id="dr${globalIdx}">
             <td colspan="11"><div class="detail-panel">${detailHtml}</div></td>
@@ -302,12 +318,12 @@ function renderPagination() {
     const total = Math.ceil(filtered.length/PAGE_SIZE);
     const pg = document.getElementById('pagination');
     if (total<=1) { pg.innerHTML=''; return; }
-    let html = `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹ 上一頁</button>`;
+    let html = `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>上一頁</button>`;
     pageRange(currentPage,total).forEach(p => {
         if (p==='...') html+=`<span class="page-info">…</span>`;
         else html+=`<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
     });
-    html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>下一頁 ›</button>`;
+    html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>下一頁</button>`;
     html += `<span class="page-info">第 ${currentPage} / ${total} 頁</span>`;
     pg.innerHTML = html;
 }
