@@ -92,31 +92,21 @@
     <h1 class="page-title">設定</h1>
     <p class="page-subtitle">管理自動查詢任務清單與排程執行頻率。</p>
 
-    <!-- 系統執行 & 排程設定 -->
+    <!-- 排程設定 -->
     <div class="card accent-green">
-        <div class="card-title">系統執行與排程設定</div>
-        <div style="display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap;">
-            <div>
-                <button id="runAllBtn" class="btn-warning" onclick="runAllTasks()">立即執行全部排程</button>
-                <div id="runStatus" class="status-text"></div>
-            </div>
-            <div style="border-left: 1px solid #e0e0e0; padding-left: 32px;">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <label style="font-size:13px; font-weight:600; text-transform:none; letter-spacing:0; color:#333; margin:0;">自動執行頻率：</label>
-                    <select id="cronSelect">
-                        <option value="0 16 * * *">每天 00:00 (半夜)</option>
-                        <option value="0 0 * * *">每天 08:00 (早上)</option>
-                        <option value="0 4 * * *">每天 12:00 (中午)</option>
-                        <option value="0 */12 * * *">每 12 小時一次</option>
-                        <option value="0 */6 * * *">每 6 小時一次</option>
-                        <option value="0 */2 * * *">每 2 小時一次</option>
-                    </select>
-                    <button class="btn-info" onclick="updateSchedule()">更新排程</button>
-                </div>
-                <div id="cronStatus" class="status-text"></div>
-                <p class="hint">不建議設定過於頻繁，以免被政府網站阻擋 IP。</p>
-            </div>
+        <div class="card-title">自動搜尋排程</div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <select id="cronSelect">
+                <option value="0 16 * * *">每天 00:00 (半夜)</option>
+                <option value="0 0 * * *">每天 08:00 (早上)</option>
+                <option value="0 4 * * *">每天 12:00 (中午)</option>
+                <option value="0 */12 * * *">每 12 小時一次</option>
+                <option value="0 */6 * * *">每 6 小時一次</option>
+                <option value="0 */2 * * *">每 2 小時一次</option>
+            </select>
+            <button class="btn-info" onclick="updateSchedule()">更新排程</button>
         </div>
+        <div id="cronStatus" class="status-text" style="margin-top: 10px;"></div>
     </div>
 
     <!-- 新增任務 -->
@@ -146,6 +136,12 @@
             <button class="btn-secondary" onclick="loadTasks()" style="font-size:12px; padding:5px 12px;">重新整理</button>
         </div>
         <div id="taskList">讀取中...</div>
+    </div>
+
+    <!-- 立即執行 -->
+    <div class="card">
+        <button id="runAllBtn" class="btn-warning" style="width:100%; padding:13px; font-size:14px;" onclick="runAllTasks()">立即全部搜尋，執行所有任務</button>
+        <div id="runStatus" class="status-text" style="margin-top:10px;"></div>
     </div>
 
     <!-- 結果 -->
@@ -188,9 +184,10 @@
                     if (selectEl.options[i].value === currentCron) { selectEl.selectedIndex = i; found = true; break; }
                 }
                 if (!found) { const o = new Option(`自訂 (${currentCron})`, currentCron, true, true); selectEl.add(o); }
-                statusDiv.innerHTML = `<span style='color:#5a9e14'>目前雲端排程：<b>${currentCron}</b></span>`;
+                const label = selectEl.options[selectEl.selectedIndex].text;
+                statusDiv.innerHTML = `<span style='color:#5a9e14'>目前自動搜尋時間：<b>${label}</b></span>`;
             } else {
-                statusDiv.innerHTML = "<span style='color:#e6a817'>無法解析 auto_scraper.yml 中的排程設定</span>";
+                statusDiv.innerHTML = "<span style='color:#e6a817'>無法讀取目前排程設定</span>";
             }
         } catch (e) {
             statusDiv.innerHTML = `<span style='color:#dc3545'>讀取排程失敗：${e.message}</span>`;
