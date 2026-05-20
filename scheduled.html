@@ -159,22 +159,34 @@
     const GITHUB_REPO  = 'tender-tracker';
     const owner = GITHUB_OWNER;
     const repo  = GITHUB_REPO;
-    const token = localStorage.getItem('gh_token');
     let currentTasks = [];
     let fileSha = "";
 
-    if (!token) alert("請先在首頁設定 GitHub Token！");
+    // 每次呼叫時即時讀取，確保從首頁輸入後能取到最新值
+    function getToken() { return localStorage.getItem('gh_token'); }
 
     function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
-    function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
+    // 使用 TextDecoder 正確解碼含有中文的 base64 UTF-8 內容
+    function b64_to_utf8(str) {
+        const binary = window.atob(str);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder('utf-8').decode(bytes);
+    }
 
     async function loadCurrentSchedule() {
+        const token = getToken();
         const statusDiv = document.getElementById('cronStatus');
+        if (!token) {
+            statusDiv.innerHTML = "<span style='color:#dc3545'>請先至首頁輸入存取密碼。</span>";
+            return;
+        }
         statusDiv.innerHTML = "<span style='color:#888'>讀取目前排程設定中...</span>";
         try {
             const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/auto_scraper.yml?t=${new Date().getTime()}`;
             const getRes = await fetch(fileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
-            if (!getRes.ok) throw new Error("找不到 auto_scraper.yml");
+            if (getRes.status === 401 || getRes.status === 403) throw new Error("存取密碼無效或權限不足，請回首頁重新輸入。");
+            if (!getRes.ok) throw new Error(`無法取得排程設定 (HTTP ${getRes.status})`);
             const data = await getRes.json();
             const yamlContent = b64_to_utf8(data.content.replace(/[\r\n\s]/g, ''));
             const cronMatch = yamlContent.match(/cron:\s*['"']?([^'"#\r\n]+)['"']?/);
@@ -197,7 +209,9 @@
     }
 
     async function runAllTasks() {
+        const token = getToken();
         const btn = document.getElementById('runAllBtn');
+        if (!token) { document.getElementById('runStatus').innerHTML = "<span style='color:#dc3545'>請先至首頁輸入存取密碼。</span>"; return; }
         btn.disabled = true;
         document.getElementById('runStatus').innerText = "發送指令中...";
         try {
@@ -218,8 +232,10 @@
     }
 
     async function updateSchedule() {
+        const token = getToken();
         const newCron = document.getElementById('cronSelect').value;
         const statusDiv = document.getElementById('cronStatus');
+        if (!token) { statusDiv.innerHTML = "<span style='color:#dc3545'>請先至首頁輸入存取密碼。</span>"; return; }
         statusDiv.innerHTML = "<span style='color:#17a2b8'>正在修改 GitHub 設定檔...</span>";
         try {
             const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/auto_scraper.yml`;
@@ -242,17 +258,26 @@
     }
 
     async function loadTasks() {
-        document.getElementById('taskList').innerHTML = "讀取任務中...";
+        const token = getToken();
+        const taskListEl = document.getElementById('taskList');
+        if (!token) {
+            taskListEl.innerHTML = "<span style='color:#dc3545'>請先至首頁輸入存取密碼。</span>";
+            return;
+        }
+        taskListEl.innerHTML = "讀取任務中...";
         try {
             const url = `https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json?t=${new Date().getTime()}`;
             const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.status === 401 || res.status === 403) throw new Error("存取密碼無效或權限不足");
             if (res.status === 404) { currentTasks = []; renderTasks(); return; }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
+            if (!data.content) throw new Error("回應格式異常，無法取得任務內容");
             fileSha = data.sha;
-            currentTasks = JSON.parse(b64_to_utf8(data.content.replace(/[\r\n\s]/g, '')));
+            currentTasks = JSON.parse(b64_to_utf8(data.content.replace(/[\r\n]/g, '')));
             renderTasks();
         } catch (e) {
-            document.getElementById('taskList').innerHTML = "讀取失敗。";
+            taskListEl.innerHTML = `<span style='color:#dc3545'>讀取任務失敗：${e.message}</span>`;
         }
     }
 
@@ -283,7 +308,7 @@
     async function checkTaskHasData(id) {
         try {
             const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`, {
-                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' }
+                headers: { 'Authorization': `Bearer ${getToken()}`, 'Accept': 'application/vnd.github.v3.raw' }
             });
             const badge = document.getElementById(`badge-${id}`);
             const row = document.getElementById(`task-row-${id}`);
@@ -318,7 +343,7 @@
         const body = { message: "Update automated tasks", content: contentB64, branch: "main" };
         if (fileSha) body.sha = fileSha;
         const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data/tasks.json`, {
-            method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            method: 'PUT', headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
         if (res.ok) { document.getElementById('saveStatus').innerText = "已儲存！"; await loadTasks(); }
@@ -330,7 +355,7 @@
         document.getElementById('tableContainer').innerHTML = "載入中...";
         try {
             const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data/task_${id}.csv?t=${new Date().getTime()}`, {
-                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' }
+                headers: { 'Authorization': `Bearer ${getToken()}`, 'Accept': 'application/vnd.github.v3.raw' }
             });
             const rows = (await res.text()).split('\n').filter(r => r.trim());
             let html = '<table>';
