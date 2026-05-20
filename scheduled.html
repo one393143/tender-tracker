@@ -155,8 +155,10 @@
 </div>
 
 <script>
-    const owner = localStorage.getItem('gh_owner');
-    const repo = localStorage.getItem('gh_repo');
+    const GITHUB_OWNER = 'one393143';
+    const GITHUB_REPO  = 'tender-tracker';
+    const owner = GITHUB_OWNER;
+    const repo  = GITHUB_REPO;
     const token = localStorage.getItem('gh_token');
     let currentTasks = [];
     let fileSha = "";
