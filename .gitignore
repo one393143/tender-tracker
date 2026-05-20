@@ -1,0 +1,7 @@
+# macOS system files
+.DS_Store
+**/.DS_Store
+
+# Temporary scraper output files
+data/results.csv
+data/task_*.csv

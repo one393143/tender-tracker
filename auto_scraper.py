@@ -69,7 +69,7 @@ def send_summary_notification(task_count, total_records, details_text):
     msg = MIMEMultipart()
     msg['From'] = sender_email
     msg['To'] = primary_receiver
-    msg['Subject'] = f"🔔 政府採購網自動查詢完成 (發現 {total_records} 筆)"
+    msg['Subject'] = f"[系統通知] 政府採購網自動追蹤排程執行報告 (共 {total_records} 筆)"
 
     # 取得 Repo 資訊來動態生成網址 (由 GitHub Actions 自動提供)
     repo_full_name = os.environ.get('GITHUB_REPOSITORY', 'your-username/tender-tracker')
@@ -78,12 +78,16 @@ def send_summary_notification(task_count, total_records, details_text):
     dashboard_url = f"https://{owner}.github.io/{repo_name}/scheduled.html"
 
     body = (
-        f"您的自動採購查詢排程已執行完畢！\n\n"
-        f"🕒 查詢區間：{start_date_str} ~ {end_date_str}\n"
-        f"📊 執行任務數：{task_count} 項\n"
-        f"🎯 總計標案數：{total_records} 筆\n\n"
-        f"--- 各任務詳細統計 ---\n{details_text}\n"
-        f"👉 請至您的管理中心查看詳細資料：\n{dashboard_url}"
+        f"您好：\n\n"
+        f"政府採購網自動追蹤系統已於今日執行完畢，以下為本次排程之執行報告：\n\n"
+        f"■ 查詢設定與統計\n"
+        f"- 查詢區間：{start_date_str} ~ {end_date_str}\n"
+        f"- 追蹤關鍵字項目：{task_count} 組\n"
+        f"- 本次新增標案總數：{total_records} 筆\n\n"
+        f"■ 關鍵字追蹤詳細結果：\n{details_text}\n"
+        f"■ 系統儀表板：\n"
+        f"請至以下連結檢視完整資料與歷史紀錄：\n{dashboard_url}\n\n"
+        f"此信件為系統自動發送，請勿直接回覆。"
     )
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
@@ -116,23 +120,23 @@ def send_new_tender_alert(new_tenders):
     msg = MIMEMultipart()
     msg['From'] = sender_email
     msg['To'] = receiver_emails_raw
-    msg['Subject'] = f"🚀 發現 {len(new_tenders)} 筆全新標案！"
+    msg['Subject'] = f"標案提醒：{len(new_tenders)}筆新採購案"
 
     repo_full_name = os.environ.get('GITHUB_REPOSITORY', 'your-username/tender-tracker')
     owner = repo_full_name.split('/')[0]
     repo_name = repo_full_name.split('/')[1]
     dashboard_url = f"https://{owner}.github.io/{repo_name}/scheduled.html"
 
-    body = f"系統在本次排程中，發現了 {len(new_tenders)} 筆過去從未出現過的全新標案案號：\n\n"
+    body = f"您好：\n\n政府採購網追蹤系統於本次排程中，篩選出 {len(new_tenders)} 筆新增之採購標案。相關明細如下，供您參考：\n\n"
     
     for idx, t in enumerate(new_tenders, 1):
         body += f"{idx}. 【{t.get('機關名稱', '未知')}】 {t.get('標案名稱', '未知')}\n"
-        body += f"   - 案號：{t.get('標案案號', '')}\n"
-        body += f"   - 日期：{t.get('公告日期', '')}\n"
-        body += f"   - 預算：{t.get('預算金額', '')}\n"
-        body += f"   - 連結：{t.get('連結', '')}\n\n"
+        body += f"   - 標案案號：{t.get('標案案號', '')}\n"
+        body += f"   - 公告日期：{t.get('公告日期', '')}\n"
+        body += f"   - 預算金額：TWD {t.get('預算金額', '')}\n"
+        body += f"   - 標案連結：{t.get('連結', '')}\n\n"
         
-    body += f"👉 請至您的管理中心查看詳細資料：\n{dashboard_url}"
+    body += f"詳細標案清單與歷史數據，請至系統儀表板查閱：\n{dashboard_url}\n\n本郵件為自動化系統發送，如有任何疑問請洽系統管理人員。"
     
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
