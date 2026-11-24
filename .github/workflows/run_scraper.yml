@@ -23,12 +23,12 @@ jobs:
       contents: write # 允許寫入 CSV 檔案回 GitHub
     steps:
       - name: 檢出專案代碼
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: 設定 Python 環境
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.9'
+          python-version: '3.12'
 
       - name: 安裝極簡套件
         run: pip install requests beautifulsoup4

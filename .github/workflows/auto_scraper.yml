@@ -12,10 +12,10 @@ jobs:
       contents: write
       actions: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.9'
+          python-version: '3.12'
       - run: pip install requests beautifulsoup4
 
       - name: 初始化資料庫（首次執行時將歷史 CSV 匯入，之後為 no-op）
